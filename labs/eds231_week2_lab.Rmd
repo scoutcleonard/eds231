@@ -1,0 +1,62 @@
+---
+title: 'Week 2 Lab: Text Data in R'
+author: "Scout Leonard"
+date: "4/6/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Connect to the New York Times API and send a query
+
+## Load Libraries
+
+```{r}
+library(jsonlite) #convert results from API queries into R-friendly formats 
+library(tidyverse) 
+library(tidytext) #text data management and analysis
+library(ggplot2) #plot word frequencies and publication dates
+```
+
+This connects to the article search API form the New York Times. 
+
+```{r}
+#create an object called t with the results of our query ("haaland")
+# the from JSON flatten the JSON object, then convert to a data frame
+t <- fromJSON("http://api.nytimes.com/svc/search/v2/articlesearch.json?q=haaland&api-key=NTKBHbsb6XFEkGymGumAiba7n3uBvs8V", flatten = TRUE) #the string following "key=" is your API key 
+
+class(t) #what type of object is t?
+
+t <- t %>% 
+  data.frame()
+
+
+#Inspect our data
+class(t) #now what is it?
+dim(t) # how big is it?
+names(t) # what variables are we working with?
+#t <- readRDS("nytDat.rds") #in case of API emergency :)
+```
+
+We have 10 articles and 33 fields/variables within each of those article objects. 
+
+`names(t)` returns the 
+
+```{r}
+t$response.docs.snippet[9]
+
+#assign a snippet to x to use as fodder for stringr functions.  You can follow along using the sentence on the next line.
+
+x <- "Her nomination as secretary of the interior is historic, but as the first Native cabinet member, she would have to strike a delicate balance." 
+
+tolower(x)
+str_split(x, ','); str_split(x, 't') #splits by commas, then by the letter t
+str_replace(x, 'historic', 'without precedent')
+str_replace(x, ' ', '_') #first one
+#how do we replace all of them?
+str_replace_all(x, ' ', '_')
+str_detect(x, 't'); str_detect(x, 'tive') ### is pattern in the string? T/F
+str_locate(x, 't'); str_locate_all(x, 'as')
+```

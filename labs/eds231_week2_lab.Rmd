@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Connect to the New York Times API and send a query
 
+I first needed to create an API key after making a [NYT delveloper account.](https://developer.nytimes.com/). 
+
 ## Load Libraries
 
 ```{r}
@@ -18,6 +20,7 @@ library(jsonlite) #convert results from API queries into R-friendly formats
 library(tidyverse) 
 library(tidytext) #text data management and analysis
 library(ggplot2) #plot word frequencies and publication dates
+library(here)
 ```
 
 This connects to the article search API form the New York Times. 
@@ -60,3 +63,131 @@ str_replace_all(x, ' ', '_')
 str_detect(x, 't'); str_detect(x, 'tive') ### is pattern in the string? T/F
 str_locate(x, 't'); str_locate_all(x, 'as')
 ```
+
+OK, it’s working but we want more data. Let’s set some parameters for a bigger query
+
+```{r}
+term <- "Haaland" # Need to use + to string together separate words
+begin_date <- "20210120"
+end_date <- "20220401"
+
+#construct the query url using API operators
+baseurl <- paste0("http://api.nytimes.com/svc/search/v2/articlesearch.json?q=",term,
+                  "&begin_date=",begin_date,"&end_date=",end_date,
+                  "&facet_filter=true&api-key=","NTKBHbsb6XFEkGymGumAiba7n3uBvs8V", sep="")
+```
+
+```{r}
+#examine our query url
+#this code allows for obtaining multiple pages of query results 
+#  initialQuery <- fromJSON(baseurl)
+# maxPages <- round((initialQuery$response$meta$hits[1] / 10)-1) 
+# 
+# pages <- list()
+# for(i in 0:maxPages){
+#   nytSearch <- fromJSON(paste0(baseurl, "&page=", i), flatten = TRUE) %>% data.frame() 
+#   message("Retrieving page ", i)
+#   pages[[i+1]] <- nytSearch 
+#   Sys.sleep(6) 
+# }
+# class(nytSearch)
+
+#need to bind the pages and create a tibble from nytDa
+```
+
+I have to do some troubleshooting with my API, so I downloaded [a csv of the data from the instructor's Github.](https://github.com/MaRo406/EDS_231-text-sentiment/blob/main/nytDat.csv)
+
+```{r}
+nytDat <- read.csv(here("data","nytDat.csv")) # obtained from 
+
+nytDat %>% 
+  group_by(response.docs.type_of_material) %>%
+  summarize(count=n()) %>%
+  mutate(percent = (count / sum(count))*100) %>%
+  ggplot() +
+  geom_bar(aes(y=percent, x=response.docs.type_of_material, fill=response.docs.type_of_material), stat = "identity") + coord_flip()
+```
+
+```{r}
+nytDat %>%
+  mutate(pubDay=gsub("T.*","",response.docs.pub_date)) %>%
+  group_by(pubDay) %>%
+  summarise(count=n()) %>%
+  filter(count >= 2) %>%
+  ggplot() +
+  geom_bar(aes(x=reorder(pubDay, count), y=count), stat="identity") + coord_flip()
+
+```
+
+```{r}
+names(nytDat)
+```
+
+The code chunk below makes a bar graph that includes all of the words, so it is hard to distill any important messages about our topic of interest. We can manipulate this in the `filter()` argument . There are a lot of words that are common and don't give us much meaning: **in, and, a, of, that, etc.**
+
+```{r}
+paragraph <- names(nytDat)[6] #The 6th column, "response.doc.lead_paragraph", is the one we want here.  
+tokenized <- nytDat %>%
+  unnest_tokens(word, paragraph)
+
+tokenized %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 10) %>% #illegible with all the words displayed at 5
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+`stop_words` is a list that contains common stop words in the English language. 
+
+```{r}
+data(stop_words)
+
+tokenized <- tokenized %>%
+  anti_join(stop_words) #removes the stop words 
+
+tokenized %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 5) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r}
+#inspect the list of tokens (words)
+tokenized$word
+
+clean_tokens <- str_replace_all(tokenized$word,"land[a-z,A-Z]*","land") #stem tribe words
+clean_tokens <- str_remove_all(clean_tokens, "[:digit:]") #remove all numbers
+clean_tokens <- str_remove_all(clean_tokens, "washington")
+
+clean_tokens <- gsub("’s", '', clean_tokens) #global substitution - base r function
+
+tokenized$clean <- clean_tokens
+
+tokenized %>%
+  count(clean, sort = TRUE) %>%
+  filter(n > 10) %>% #illegible with all the words displayed
+  mutate(clean = reorder(clean, n)) %>%
+  ggplot(aes(n, clean)) +
+  geom_col() +
+  labs(y = NULL)
+
+#remove the empty strings
+tib <-subset(tokenized, clean!="")
+
+#reassign
+tokenized <- tib
+
+#try again
+tokenized %>%
+  count(clean, sort = TRUE) %>%
+  filter(n > 10) %>% #illegible with all the words displayed
+  mutate(clean = reorder(clean, n)) %>%
+  ggplot(aes(n, clean)) +
+  geom_col() +
+  labs(y = NULL)
+```
+

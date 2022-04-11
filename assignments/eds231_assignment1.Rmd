@@ -1,17 +1,28 @@
 ---
-title: "eds231_assignment1"
+title: "EDS 231: Assignment 1"
 author: "Scout Leonard"
 date: "4/10/2022"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_float: yes
+    smooth_scroll: true
+    theme: journal
+    highlight: textmate
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Load Libraries
+# Objective 
 
-```{r}
+In this first assignment for EDS231: text and sentiment analysis for environmental data science, I am applying skills learned in lab to pull data from the New York Times (NYT) database via thier API, then running some basic string manipulations and creating some basic plots based on a topic of interest from NYT articles. I have chosen to analyze NYT documetns which utilize the word "honeybee."
+
+# Load Libraries
+
+```{r echo = FALSE, return = FALSE, echo = FALSE}
 library(jsonlite) #convert results from API queries into R-friendly formats 
 library(tidyverse) 
 library(tidytext) #text data management and analysis
@@ -19,28 +30,47 @@ library(ggplot2) #plot word frequencies and publication dates
 library(here)
 ```
 
-# Create a free New York Times account (https://developer.nytimes.com/get-started)
+# Assignment 1 Responses 
 
-# Pick an interesting environmental key word(s) and use the jsonlite package to query the API. Pick something high profile enough and over a large enough time frame that your query yields enough articles for an interesting examination.
+## Part 1
+
+**Create a free New York Times account (https://developer.nytimes.com/get-started)**
+
+Done! I have my key saved in a safe place (in addition to the place where it appears in my code below, haha!)
+
+##  Part 2 
+
+**Pick an interesting environmental key word(s) and use the jsonlite package to query the API. Pick something high profile enough and over a large enough time frame that your query yields enough articles for an interesting examination.**
+
+I chose the keyword, "hoenybee," and used data starting in 2017 (5 years of data) until today.
+
+In the code chunk below, I set my search parameters and call data from the NYT API using my key, so that I can pull all the publications from these dates with my environmental key word.
+
+The code will return the URL by search parameters build. 
 
 ```{r}
+#set search parameters
 term <- "honeybee" # Need to use + to string together separate words
-begin_date <- "20100101"
+begin_date <- "20170101"
 end_date <- "20220410"
+key <- "CW2nwn63au0uAelc9XjRMGfQ1XZ2Vpo9"
 
+#base url using our start and end dates and key term 
 baseurl <- paste0("http://api.nytimes.com/svc/search/v2/articlesearch.json?q=",term,
                   "&begin_date=",begin_date,"&end_date=",end_date,
-                  "&facet_filter=true&api-key=","CW2nwn63au0uAelc9XjRMGfQ1XZ2Vpo9", sep="")
+                  "&facet_filter=true&api-key=", key, sep="")
 
-#return base url
+#check: return base url
 baseurl
 ```
 
-# Recreate the publications per day and word frequency plots using the first paragraph
+## Part 3 
 
-```{r}
+**Recreate the publications per day and word frequency plots using the first paragraph**
+
+```{r return = FALSE, echo = FALSE}
 #this code allows for obtaining multiple pages of query results 
- initialQuery <- fromJSON(baseurl)
+initialQuery <- fromJSON(baseurl)
 maxPages <- round((initialQuery$response$meta$hits[1] / 10)-1) 
 
 pages <- list()
@@ -50,15 +80,17 @@ for(i in 0:maxPages){
   pages[[i+1]] <- nytSearch 
   Sys.sleep(6) 
 }
+
+#check
 class(nytSearch)
 
 #need to bind the pages and create a tibble from nytDat
 nytDat <- rbind_pages(pages)
 ```
 
-### Publication Per Day Plot
+### Publications Per Day Plot
 
-```{r}
+```{r fig.cap = "The code chunk below shows the frequency of the use of my environmental key word, 'honeybee,' with the dates on the y axis showing the date for which the corresponding x axis value, a frequncy of mentions per day, corresponds to."}
 nytDat %>%
   mutate(pubDay = gsub("T.*",
                        "",
@@ -70,27 +102,23 @@ nytDat %>%
   geom_bar(aes(x=reorder(pubDay, count), 
                y=count), 
            stat="identity") + 
-  coord_flip()
+  coord_flip() +
+  labs(title = "NYT Publications Per Day with 'honeybee' in the publication")
 ```
 
 ### Word Frequency Plot 
 
 ```{r}
+#check that this returns the lead paragraph,ie returns response.doc.lead.paragraph
 paragraph <- names(nytDat)[6] #The 6th column, "response.doc.lead_paragraph", is the one we want here.  
 
 tokenized <- nytDat %>%
   unnest_tokens(word, paragraph)
-
-tokenized %>%
-  count(word, sort = TRUE) %>%
-  filter(n > 10) %>% #illegible with all the words displayed at 5
-  mutate(word = reorder(word, n)) %>%
-  ggplot(aes(n, word)) +
-  geom_col() +
-  labs(y = NULL)
 ```
 
-```{r}
+Below, I create a word frequency plot without using stop words, stemmed key terms, or removing numbers. This is for comparison so that I know that my processing of the tokenized data outputs as expected, changing the distribution of word frequencies. 
+
+```{r fig.cap = "A frequency word plot of the use of 'honeybee' in New York Times publications. No processing of tokenized data has yet occured in for the word data, except for removing stop words with the R dataset 'stop_words'." }
 data(stop_words)
 
 tokenized <- tokenized %>%
@@ -102,22 +130,30 @@ tokenized %>%
   mutate(word = reorder(word, n)) %>%
   ggplot(aes(n, word)) +
   geom_col() +
-  labs(y = NULL)
+  labs(y = NULL,
+       title = "Frequency of words co-occuring with 'honeybee' in NYT publications")
 ```
 
 _Make some (at least 3) transformations to the corpus (add stopword(s), stem a key term and its variants, remove numbers)_
 
-```{r}
+```{r echo = FALSE, return = FALSE}
 #inspect the list of tokens (words)
 tokenized$word
+```
 
+```{r}
 #remove numbers 
 clean_tokens <- str_remove_all(tokenized$word, "[:digit:]")
 
+#removes appostrophes
+clean_tokens <- gsub("’s", '', clean_tokens)
+
 #add stopwords
+#NOTE! this is not working as i would expect rn 
 clean_tokens <- str_remove_all(clean_tokens, "ago")
 clean_tokens <- str_remove_all(clean_tokens, "nytimes.com")
 clean_tokens <- str_remove_all(clean_tokens, "york")
+clean_tokens <- str_remove_all(clean_tokens, "it's")
 
 #stem a key term
 clean_tokens <- str_replace_all(tokenized$word," apis ","honeybee") #stem bee words
@@ -128,15 +164,99 @@ clean_tokens <- str_replace_all(tokenized$word," bees ","honeybee")
 tokenized$clean <- clean_tokens
 
 #remove the empty strings
-tib <-subset(tokenized, clean!="")
+tib <-subset(tokenized, clean != "")
+
+#reassign
+tokenized <- tib
 
 #try again
 tokenized %>%
   count(clean, sort = TRUE) %>%
-  filter(n > 15) %>% #illegible with all the words displayed
+  filter(n > 10) %>% #illegible with all the words displayed
   mutate(clean = reorder(clean, n)) %>%
   ggplot(aes(n, clean)) +
   geom_col() +
   labs(y = NULL)
 ```
 
+## Part 4
+
+**Recreate the publications per day and word frequency plots using the headlines variable (response.docs.headline.main). Compare the distributions of word frequencies between the first paragraph and headlines. Do you see any difference?**
+
+### Publications Per Day Plot
+
+_NOTE: I am not sure how to specify I want headlines here_ 
+
+```{r}
+nytDat %>%
+  mutate(pubDay=gsub("T.*","",response.docs.pub_date)) %>%
+  group_by(pubDay) %>%
+  summarise(count=n()) %>%
+  filter(count >= 2) %>%
+  ggplot() +
+  geom_bar(aes(x=reorder(pubDay, count), y=count), stat="identity") + coord_flip()
+```
+
+### Word frequency plot
+
+```{r}
+#check that this returns the lead paragraph,ie returns response.doc.lead.paragraph
+headline <- names(nytDat)[21] #The 6th column, "response.doc.lead_main", is the one we want here.  
+
+headlines_tokenized <- nytDat %>%
+  unnest_tokens(word, headline)
+
+data(stop_words)
+
+headlines_tokenized <- headlines_tokenized %>%
+  anti_join(stop_words) #removes the stop words 
+```
+
+```{r}
+headlines_tokenized %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 10) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL,
+       title = "Frequency of words co-occuring with 'honeybee' in NYT headlines")
+```
+
+```{r}
+#remove numbers 
+clean_headline_tokens <- str_remove_all(headlines_tokenized$word, "[:digit:]")
+
+#removes appostrophes
+clean_headline_tokens <- gsub("’s", '', clean_headline_tokens)
+
+#add stopwords
+#NOTE! this is not working as i would expect rn 
+clean_headline_tokens <- str_remove_all(clean_headline_tokens, "ago")
+clean_headline_tokens <- str_remove_all(clean_headline_tokens, "nytimes.com")
+clean_headline_tokens <- str_remove_all(clean_headline_tokens, "york")
+clean_headline_tokens <- str_remove_all(clean_headline_tokens, "it's")
+
+#stem a key term
+clean_headline_tokens <- str_replace_all(headlines_tokenized$word," apis ","honeybee") #stem bee words
+clean_headline_tokens <- str_replace_all(headlines_tokenized$word,"honeybee*","honeybee")
+clean_headline_tokens <- str_replace_all(headlines_tokenized$word, " bee ","honeybee")
+clean_headline_tokens <- str_replace_all(headlines_tokenized$word," bees ","honeybee")
+
+headlines_tokenized$clean <- clean_headline_tokens
+
+#remove the empty strings
+tib <-subset(headlines_tokenized, clean != "")
+
+#reassign
+headlines_tokenized <- tib
+
+#try again
+headlines_tokenized %>%
+  count(clean, sort = TRUE) %>%
+  filter(n > 10) %>% #illegible with all the words displayed
+  mutate(clean = reorder(clean, n)) %>%
+  ggplot(aes(n, clean)) +
+  geom_col() +
+  labs(y = NULL)
+```

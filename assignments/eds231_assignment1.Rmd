@@ -1,0 +1,123 @@
+---
+title: "eds231_assignment1"
+author: "Scout Leonard"
+date: "4/10/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Libraries
+
+```{r}
+library(jsonlite) #convert results from API queries into R-friendly formats 
+library(tidyverse) 
+library(tidytext) #text data management and analysis
+library(ggplot2) #plot word frequencies and publication dates
+library(here)
+```
+
+# Create a free New York Times account (https://developer.nytimes.com/get-started)
+
+# Pick an interesting environmental key word(s) and use the jsonlite package to query the API. Pick something high profile enough and over a large enough time frame that your query yields enough articles for an interesting examination.
+
+```{r}
+term <- "honeybee" # Need to use + to string together separate words
+begin_date <- "20100101"
+end_date <- "20220410"
+
+baseurl <- paste0("http://api.nytimes.com/svc/search/v2/articlesearch.json?q=",term,
+                  "&begin_date=",begin_date,"&end_date=",end_date,
+                  "&facet_filter=true&api-key=","CW2nwn63au0uAelc9XjRMGfQ1XZ2Vpo9", sep="")
+
+#return base url
+baseurl
+```
+
+# Recreate the publications per day and word frequency plots using the first paragraph
+
+```{r}
+#this code allows for obtaining multiple pages of query results 
+ initialQuery <- fromJSON(baseurl)
+maxPages <- round((initialQuery$response$meta$hits[1] / 10)-1) 
+
+pages <- list()
+for(i in 0:maxPages){
+  nytSearch <- fromJSON(paste0(baseurl, "&page=", i), flatten = TRUE) %>% data.frame() 
+  message("Retrieving page ", i)
+  pages[[i+1]] <- nytSearch 
+  Sys.sleep(6) 
+}
+class(nytSearch)
+
+#need to bind the pages and create a tibble from nytDat
+nytDat <- rbind_pages(pages)
+```
+
+### Publication Per Day Plot
+
+```{r}
+nytDat %>%
+  mutate(pubDay = gsub("T.*",
+                       "",
+                       response.docs.pub_date)) %>%
+  group_by(pubDay) %>%
+  summarise(count=n()) %>%
+  filter(count >= 2) %>%
+  ggplot() +
+  geom_bar(aes(x=reorder(pubDay, count), 
+               y=count), 
+           stat="identity") + 
+  coord_flip()
+```
+
+### Word Frequency Plot 
+
+```{r}
+paragraph <- names(nytDat)[6] #The 6th column, "response.doc.lead_paragraph", is the one we want here.  
+
+tokenized <- nytDat %>%
+  unnest_tokens(word, paragraph)
+
+tokenized %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 10) %>% #illegible with all the words displayed at 5
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r}
+data(stop_words)
+
+tokenized <- tokenized %>%
+  anti_join(stop_words) #removes the stop words 
+
+tokenized %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 10) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+_Make some (at least 3) transformations to the corpus (add stopword(s), stem a key term and its variants, remove numbers)_
+
+```{r}
+#inspect the list of tokens (words)
+tokenized$word
+
+#remove numbers 
+clean_tokens <- str_remove_all(tokenized$word, "[:digit:]")
+
+#add stopwords
+
+#stem a key term
+clean_tokens <- str_replace_all(tokenized$word,"[a-z,A-Z]*","honeybee") #stem bee words
+
+```
+

@@ -1,28 +1,28 @@
 ---
 title: "EDS 231: Assignment 1"
 author: "Scout Leonard"
-date: "4/10/2022"
-output:
-  html_document:
-    toc: true
-    toc_float: yes
-    smooth_scroll: true
-    theme: journal
-    highlight: textmate
-    code_folding: hide
+date: '`r format(Sys.time(), "%m/%d/%Y")`'
+output: pdf_document
+header-includes:
+  - \setlength{\parindent}{1em}
+  - \usepackage{float}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width = 6, 
+                      fig.height = 5, 
+                      echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE)
 ```
 
 # Objective 
 
-In this first assignment for EDS231: text and sentiment analysis for environmental data science, I am applying skills learned in lab to pull data from the New York Times (NYT) database via thier API, then running some basic string manipulations and creating some basic plots based on a topic of interest from NYT articles. I have chosen to analyze NYT documetns which utilize the word "honeybee."
+\noindent In this first assignment for EDS231: text and sentiment analysis for environmental data science, I am applying skills learned in lab to pull data from the New York Times (NYT) database via thier API, then running some basic string manipulations and creating some basic plots based on a topic of interest from NYT articles. I have chosen to analyze NYT documetns which utilize the word "honeybee."
 
 # Load Libraries
 
-```{r echo = FALSE, return = FALSE, echo = FALSE}
+```{r echo = FALSE, return = FALSE, echo = FALSE, warning = FALSE}
 library(jsonlite) #convert results from API queries into R-friendly formats 
 library(tidyverse) 
 library(tidytext) #text data management and analysis
@@ -36,17 +36,17 @@ library(here)
 
 **Create a free New York Times account (https://developer.nytimes.com/get-started)**
 
-Done! I have my key saved in a safe place (in addition to the place where it appears in my code below, haha!)
+\noindent Done! I have my key saved in a safe place (in addition to the place where it appears in my code below, haha!)
 
 ##  Part 2 
 
 **Pick an interesting environmental key word(s) and use the jsonlite package to query the API. Pick something high profile enough and over a large enough time frame that your query yields enough articles for an interesting examination.**
 
-I chose the keyword, "hoenybee," and used data starting in 2017 (5 years of data) until today.
+\noindent I chose the keyword, "honeybee," and used data starting in 2017 (5 years of data) until today.
 
-In the code chunk below, I set my search parameters and call data from the NYT API using my key, so that I can pull all the publications from these dates with my environmental key word.
+\noindent In the code chunk below, I set my search parameters and call data from the NYT API using my key, so that I can pull all the publications from these dates with my environmental key word.
 
-The code will return the URL by search parameters build. 
+\noindent The code will return the URL by search parameters build. 
 
 ```{r}
 #set search parameters
@@ -66,7 +66,7 @@ baseurl
 
 ## Part 3 
 
-**Recreate the publications per day and word frequency plots using the first paragraph**
+\noindent **Recreate the publications per day and word frequency plots using the first paragraph**
 
 ```{r return = FALSE, echo = FALSE}
 #this code allows for obtaining multiple pages of query results 
@@ -116,14 +116,19 @@ tokenized <- nytDat %>%
   unnest_tokens(word, paragraph)
 ```
 
-Below, I create a word frequency plot without using stop words, stemmed key terms, or removing numbers. This is for comparison so that I know that my processing of the tokenized data outputs as expected, changing the distribution of word frequencies. 
+\noindent Below, I create a word frequency plot without stemmed key terms or removing numbers, just removing stop words. This is for comparison so that I know that my processing of the tokenized data outputs changes as expected, altering the distribution of word frequencies. 
 
-```{r fig.cap = "A frequency word plot of the use of 'honeybee' in New York Times publications. No processing of tokenized data has yet occured in for the word data, except for removing stop words with the R dataset 'stop_words'." }
+```{r results='hide'}
+#load stop words data
 data(stop_words)
 
+#remove stop words from tokenized first paragraph words
 tokenized <- tokenized %>%
-  anti_join(stop_words) #removes the stop words 
+  anti_join(stop_words)
+```
 
+```{r fig.cap = "A frequency word plot of the use of 'honeybee' in New York Times publications. No processing of tokenized data has yet occured in for the word data, except for removing stop words with the R dataset 'stop_words'." }
+#count occurrences of all the words in tokenized, and plot all the words that occur more than 10 times
 tokenized %>%
   count(word, sort = TRUE) %>%
   filter(n > 10) %>%
@@ -131,10 +136,10 @@ tokenized %>%
   ggplot(aes(n, word)) +
   geom_col() +
   labs(y = NULL,
-       title = "Frequency of words co-occuring with 'honeybee' in NYT publications")
+       title = "Frequency of words co-occuring with 'honeybee' in NYT publications 1st paragraph")
 ```
 
-_Make some (at least 3) transformations to the corpus (add stopword(s), stem a key term and its variants, remove numbers)_
+\noindent _Make some (at least 3) transformations to the corpus (add stopword(s), stem a key term and its variants, remove numbers)_
 
 ```{r echo = FALSE, return = FALSE}
 #inspect the list of tokens (words)
@@ -181,11 +186,11 @@ tokenized %>%
 
 ## Part 4
 
-**Recreate the publications per day and word frequency plots using the headlines variable (response.docs.headline.main). Compare the distributions of word frequencies between the first paragraph and headlines. Do you see any difference?**
+\noindent **Recreate the publications per day and word frequency plots using the headlines variable (response.docs.headline.main). Compare the distributions of word frequencies between the first paragraph and headlines. Do you see any difference?**
 
 ### Publications Per Day Plot
 
-_NOTE: I am not sure how to specify I want headlines here_ 
+\noindent _NOTE: I am not sure how to specify I want headlines here_ 
 
 ```{r}
 nytDat %>%

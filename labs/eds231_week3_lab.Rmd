@@ -1,0 +1,186 @@
+---
+title: "EDS 231 Week 3 Lab: Senitment Analysis"
+author: "Scout Leonard"
+date: "4/13/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+Sentiment analysis is a tool for assessing the mood of a piece of text. For example, we can use sentiment analysis to understand public perceptions of topics in environmental policy like energy, climate, and conservation.
+
+#Load Libraries 
+
+```{r}
+# load packages
+packages=c("tidyr",
+           "lubridate",
+           "pdftools",
+           "pdftools",
+           "tidytext",
+           "here",
+           "LexisNexisTools",
+           "sentimentr",
+           "readr",
+           "textdata")
+
+for (i in packages) {
+  if (require(i,character.only=TRUE)==FALSE) {
+    install.packages(i,repos='http://cran.us.r-project.org')
+  }
+  else {
+    require(i,character.only=TRUE)
+  }
+}
+```
+
+# Intro to Sentiment Analysis Example
+
+For this introductory example, I selected a text excerpt from the National Book Award winning book, The Overstory by Richard Powers.
+
+The excerpt is in .pdf format, so we’ll need a tool (the pdftools package) to help us deal with that.
+
+```{r}
+over <- pdf_text(here("data/Overstory_exerpt.pdf"))
+over_df <- data.frame(text = over) %>% #create 1-column df with 'text' variable
+  mutate(page = 1:n()) #add a page number variable, 'page'
+
+#examine the beginning of the data frame
+
+over_text <- over_df %>%
+  filter(page %in% 8:41)%>%
+  mutate(text = str_split(text, '\n')) %>% #this splits by page. 
+  unnest(text) %>%  #this splits by line
+  mutate(line = str_to_lower(text)) #and convert to all lower case
+
+#write_csv(over_text, here("data/over_text.csv"))
+
+#Note: \n, used above, is an example of an "escape sequence", which allow you to include characters that would otherwise break the code
+```
+
+We’ll start by using the Bing sentiment analysis lexicon.
+
+```{r}
+bing_sent <- get_sentiments('bing') #grab the bing sentiment lexicon from tidytext
+head(bing_sent, n = 20)
+```
+
+Here is the starting point for reading in the data as a .csv. We need to unnest the text to the word level so we can label the individual sentiment words. Let’s also remove stop words as standard text cleaning procedure. Note: Not every English word is in the lexicons because many English words are pretty neutral.
+
+```{r}
+over_text <- read_csv(here("data/over_text.csv"))
+
+#unnest to word-level tokens, remove stop words, and join sentiment words
+ text_words <- over_text  %>%
+  unnest_tokens(output = word, input = text, token = 'words')
+ 
+ sent_words <- text_words%>% #break text into individual words
+  anti_join(stop_words, by = 'word') %>% #returns only the rows without stop words
+  inner_join(bing_sent, by = 'word') #joins and retains only sentiment words
+```
+
+Create a sentiment score by counting the number of sentiment words occurring per page. We can center the scores around an offset point equal to the average page sentiment score. This lets us measure the sentiment of a given page relative to the overall sentiment of the book.
+
+```{r}
+sent_scores <- sent_words %>%
+  count(sentiment, page) %>%
+  spread(sentiment, n) %>%
+  mutate(raw_score = positive - negative, #single sentiment score per page
+  offset = mean(positive - negative), #what is the average sentiment per page?
+  offset_score = (positive - negative) - offset) %>% #how does this page's sentiment compare to that of the average page?
+  arrange(desc(raw_score))
+sent_scores
+```
+
+```{r}
+ggplot(sent_scores, aes(x = page)) +
+  theme_classic() +
+  geom_bar(aes(y = raw_score), stat = 'identity', fill = 'slateblue3') +
+  geom_bar(aes(y = offset_score), stat = 'identity', fill = 'red4') +
+  geom_hline(yintercept = sent_scores$offset[1], linetype = 'dashed', size = .5) +
+  coord_flip() +
+  theme(axis.title.y = element_blank()) +
+  labs(title = 'Sentiment analysis: The Overstory',
+       y = 'Sentiment score')
+```
+
+Blue shows us the negative score. dashed line is -3 
+
+## Origin of the NRC lexicon
+
+“These guys selected about 10,000 words from an existing thesaurus… and then created a set of five questions to ask about each word that would reveal the emotions and polarity associated with it. That’s a total of over 50,000 questions.
+
+They then asked these questions to over 2000 people, or Turkers, on Amazon’s Mechanical Turk website, paying 4 cents for each set of properly answered questions.
+
+The result is a comprehensive word-emotion lexicon for over 10,000 words.”
+
+```{r}
+nrc_sent <- get_sentiments('nrc') #requires downloading a large dataset via prompt
+
+nrc_fear <- get_sentiments("nrc") %>% 
+  filter(sentiment == "fear")
+
+#most common words by sentiment
+fear_words <- over_text  %>%
+  unnest_tokens(output = word, input = text, token = 'words') %>%
+  inner_join(nrc_fear) %>%
+  count(word, sort = TRUE)
+
+nrc_word_counts <- text_words %>%
+  inner_join(get_sentiments("nrc")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+```
+
+Let’s break it out and plot the contributions by particular words different sentiment categories
+
+```{r}
+book_sent_counts <- text_words %>%
+        group_by(page) %>%
+        # mutate(page_num = 1:n(),
+        #        index = round(page_num / n(), 2)) %>%
+        #unnest_tokens(word, line) %>%
+        inner_join(get_sentiments("nrc")) %>%
+        group_by(sentiment) %>%
+        count(word, sentiment, sort = TRUE) %>%
+        ungroup()
+
+book_sent_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+# Introduction to the Nexis Uni data source
+
+```{r}
+#to follow along with this example, download this .docx to your working directory: 
+#https://github.com/MaRo406/EDS_231-text-sentiment/blob/main/nexis_dat/Nexis_IPCC_Results.docx
+my_files <- list.files(pattern = ".docx", path = here("data"),
+                       full.names = TRUE, recursive = TRUE, ignore.case = TRUE)
+
+dat <- lnt_read(my_files) #Object of class 'LNT output'
+
+
+meta_df <- dat@meta
+articles_df <- dat@articles
+paragraphs_df <- dat@paragraphs
+
+dat2<- data_frame(element_id = seq(1:length(meta_df$Headline)), Date = meta_df$Date, Headline = meta_df$Headline)
+
+#May be of use for assignment: using the full text from the articles
+paragraphs_dat <- data_frame(element_id = paragraphs_df$Art_ID, Text  = paragraphs_df$Paragraph)
+# 
+dat3 <- inner_join(dat2,paragraphs_dat, by = "element_id")
+```
+

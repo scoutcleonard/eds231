@@ -32,7 +32,10 @@ packages=c("tidyr",
            "sentimentr",
            "readr",
            "textdata",
-           "dplyr")
+           "dplyr",
+           "stringr",
+           "janitor",
+           "ggplot2")
 
 for (i in packages) {
   if (require(i,character.only=TRUE)==FALSE) {
@@ -56,16 +59,55 @@ ipcc_files <- list.files(pattern = ".docx", path = here("data"),
 
 ipcc_dat <- lnt_read(ipcc_files) #Object of class 'LNT output'
 
-meta_df <- dat@meta
-articles_df <- dat@articles
-paragraphs_df <- dat@paragraphs
+ipcc_meta_df <- ipcc_dat@meta
+ipcc_articles_df <- ipcc_dat@articles
+ipcc_paragraphs_df <- ipcc_dat@paragraphs
 
-dat2<- data_frame(element_id = seq(1:length(meta_df$Headline)), Date = meta_df$Date, Headline = meta_df$Headline)
+ipcc_dat2<- data_frame(element_id = seq(1:length(ipcc_meta_df$Headline)), 
+                       Date = ipcc_meta_df$Date, 
+                       Headline = ipcc_meta_df$Headline)
 
 #May be of use for assignment: using the full text from the articles
-paragraphs_dat <- data_frame(element_id = paragraphs_df$Art_ID, Text  = paragraphs_df$Paragraph)
-# 
-dat3 <- inner_join(dat2,paragraphs_dat, by = "element_id")
+ipcc_paragraphs_dat <- data_frame(element_id = ipcc_paragraphs_df$Art_ID, 
+                             Text  = ipcc_paragraphs_df$Paragraph)
+
+ipcc_dat3 <- inner_join(ipcc_dat2,
+                        ipcc_paragraphs_dat, 
+                        by = "element_id")
+```
+
+Use the Bing sentiment analysis lexicon.
+
+```{r}
+bing_sent <- get_sentiments('bing') #grab the bing sentiment lexicon from tidytext
+head(bing_sent, n = 20)
+```
+
+```{r}
+ipcc_text_words <- ipcc_dat3 %>%
+  unnest_tokens(output = word, 
+                input = Text, 
+                token = 'words')
+
+ ipcc_sent_words <- ipcc_text_words %>% #break text into individual words
+  anti_join(stop_words, by = 'word') %>% #returns only the rows without stop words
+  inner_join(bing_sent, by = 'word') %>% 
+   clean_names()
+ 
+```
+
+
+```{r}
+ipcc_sent_plot <- ipcc_sent_words %>% 
+  count(sentiment, date)
+
+ggplot(data = ipcc_sent_plot, aes(x = date, y = n)) +
+         geom_line(aes(color = sentiment)) +
+  theme_minimal() +
+  labs(y = "Developed Media Sentiment (no. headlines)",
+       x = "Date") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%m-%Y") +
+  scale_color_manual(values = c("blue", "red"))
 ```
 
 
@@ -122,7 +164,9 @@ dat2<- data.frame(element_id = seq(1:length(meta_df$Headline)), Date = meta_df$D
 paragraphs_dat <- data.frame(element_id = paragraphs_df$Art_ID, 
                              Text = paragraphs_df$Paragraph)
 
-dat3 <- inner_join(dat2,paragraphs_dat, by = "element_id")
+dat3 <- inner_join(dat2,
+                   paragraphs_dat, 
+                   by = "element_id")
 ```
 
 \newpage

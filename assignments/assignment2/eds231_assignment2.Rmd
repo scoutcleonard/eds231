@@ -44,6 +44,31 @@ for (i in packages) {
 }
 ```
 
+# Part 0
+
+**Using the “IPCC” Nexis Uni data set from the class presentation and the pseudo code we discussed, recreate Figure 1A from Froelich et al. (Date x # of 1) positive, 2) negative, 3) neutral headlines):**
+
+```{r}
+#to follow along with this example, download this .docx to your working directory: 
+#https://github.com/MaRo406/EDS_231-text-sentiment/blob/main/nexis_dat/Nexis_IPCC_Results.docx
+ipcc_files <- list.files(pattern = ".docx", path = here("data"),
+                       full.names = TRUE, recursive = TRUE, ignore.case = TRUE)
+
+ipcc_dat <- lnt_read(ipcc_files) #Object of class 'LNT output'
+
+meta_df <- dat@meta
+articles_df <- dat@articles
+paragraphs_df <- dat@paragraphs
+
+dat2<- data_frame(element_id = seq(1:length(meta_df$Headline)), Date = meta_df$Date, Headline = meta_df$Headline)
+
+#May be of use for assignment: using the full text from the articles
+paragraphs_dat <- data_frame(element_id = paragraphs_df$Art_ID, Text  = paragraphs_df$Paragraph)
+# 
+dat3 <- inner_join(dat2,paragraphs_dat, by = "element_id")
+```
+
+
 # Part 1
 
 **[Access the Nexis Uni database through the UCSB library] (https://www.library.ucsb.edu/research/db/211)**

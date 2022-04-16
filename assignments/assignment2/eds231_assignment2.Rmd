@@ -35,7 +35,9 @@ packages=c("tidyr",
            "dplyr",
            "stringr",
            "janitor",
-           "ggplot2")
+           "ggplot2",
+           "MetBrewer",
+           "kableExtra")
 
 for (i in packages) {
   if (require(i,character.only=TRUE)==FALSE) {
@@ -46,6 +48,8 @@ for (i in packages) {
   }
 }
 ```
+
+\newpage
 
 # Part 0
 
@@ -80,7 +84,10 @@ Use the Bing sentiment analysis lexicon.
 
 ```{r}
 bing_sent <- get_sentiments('bing') #grab the bing sentiment lexicon from tidytext
-head(bing_sent, n = 20)
+
+#test
+head(bing_sent, n = 5) %>% 
+  kable()
 ```
 
 ```{r}
@@ -89,13 +96,21 @@ ipcc_text_words <- ipcc_dat3 %>%
                 input = Text, 
                 token = 'words')
 
+#check
+head(ipcc_text_words) %>% 
+  kable()
+```
+
+```{r}
  ipcc_sent_words <- ipcc_text_words %>% #break text into individual words
   anti_join(stop_words, by = 'word') %>% #returns only the rows without stop words
   inner_join(bing_sent, by = 'word') %>% 
    clean_names()
- 
-```
 
+#check
+head(ipcc_sent_words, 5) %>% 
+  kable()
+```
 
 ```{r}
 ipcc_sent_plot <- ipcc_sent_words %>% 
@@ -105,14 +120,20 @@ ggplot(data = ipcc_sent_plot, aes(x = date, y = n)) +
          geom_line(aes(color = sentiment)) +
   theme_minimal() +
   labs(y = "Developed Media Sentiment (no. headlines)",
-       x = "Date") +
+       x = "Date",
+       title = "IPCC Publication Text Sentiment Analysis") +
   scale_x_date(date_breaks = "1 month", date_labels = "%m-%Y") +
-  scale_color_manual(values = c("blue", "red"))
+  scale_color_manual(values = c("blue", "red")) +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        axis.title = element_text(size = 15),
+        axis.text = element_text(size = 10))
 ```
+
+\newpage
 
 # Part 1
 
-**[Access the Nexis Uni database through the UCSB library] (https://www.library.ucsb.edu/research/db/211)**
+[Access the Nexis Uni database through the UCSB library] (https://www.library.ucsb.edu/research/db/211)
 
 \noindent Got it! 
 
@@ -142,7 +163,7 @@ ggplot(data = ipcc_sent_plot, aes(x = date, y = n)) +
 
 ```{r}
 lunch_files <- list.files(pattern = ".docx", 
-                          path = here("data"),
+                          path = here("data/lunch"),
                           full.names = TRUE, 
                           recursive = TRUE, 
                           ignore.case = TRUE)
@@ -156,6 +177,10 @@ lunch_paragraphs_df <- lunch_dat@paragraphs
 lunch_dat2<- data.frame(element_id = seq(1:length(lunch_meta_df$Headline)), 
                         Date = lunch_meta_df$Date, 
                         Headline = lunch_meta_df$Headline)
+
+#test
+head(lunch_dat2, 5) %>% 
+  kable()
 ```
 
 \newpage
@@ -183,15 +208,22 @@ lunch_text_words <- lunch_text_words %>%
   anti_join(stop_words) #removes the stop words 
  
  #remove numbers 
-lunch_text_words_list <- str_remove_all(lunch_text_words$word, "[:digit:]")
-#remove website strings
-lunch_text_words_list <- str_remove_all(lunch_text_words_list, "https")
+clean_lunch_words <- str_remove_all(lunch_text_words$word, "[:digit:]")
+
+#removes apostrophes
+clean_lunch_words <- gsub("’s", '', clean_lunch_words)
+
+lunch_text_words$clean <- clean_lunch_words
 
 #remove the empty strings
-tib <-subset(lunch_text_words_list != "")
+tib <-subset(lunch_text_words, clean!= "")
 
 #reassign
-headlines_tokenized <- tib
+lunch_words_tokenized <- tib
+
+#test
+head(lunch_words_tokenized) %>% 
+  kable()
 ```
 
 \newpage
@@ -200,6 +232,7 @@ headlines_tokenized <- tib
 
 **Explore your data a bit and try to replicate some of the analyses above presented in class if you’d like (not necessary).**
 
+
 \newpage
 
 # Part 7
@@ -207,9 +240,57 @@ headlines_tokenized <- tib
 **Plot the amount of emotion words (the 8 from nrc) as a percentage of all the emotion words used each day (aggregate text from articles published on the same day). How does the distribution of emotion words change over time? Can you think of any reason this would be the case?**
 
 ```{r}
-nrc_sent <- get_sentiments('nrc')
+nrc_sent <- get_sentiments('nrc') %>% 
+  filter(sentiment != "negative" & sentiment != "positive") 
 
-lunch_sent_counts <- 
+#unnest to word-level tokens, remove stop words, and join sentiment words
+ text_words <- lunch_words_tokenized %>%
+  unnest_tokens(output = word, 
+                input = clean, 
+                token = 'words')
+
+#test
+head(text_words, 5) %>% 
+   kable()
 ```
+
+\newpage
+
+```{r}
+lunch_nrc_word_counts <- text_words %>%
+  inner_join(nrc_sent) 
+
+#test
+head(lunch_nrc_word_counts, 5) %>% 
+  kable()
+```
+
+```{r}
+lunch_sentiment_freq <- lunch_nrc_word_counts %>% 
+  group_by(date, sentiment) %>% 
+  summarise(count = n()) %>%
+  mutate(freq = formattable::percent(count / sum(count)))
+
+#head
+head(lunch_sentiment_freq, 5) %>% 
+  kable()
+```
+
+\newpage
+
+```{r fig.width = 7, fig.height = 4}
+ggplot(data = lunch_sentiment_freq, aes(x = date, y = freq)) +
+  geom_line(aes(color = sentiment), size = 0.5) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%m-%Y") +
+  scale_color_manual(values = met.brewer("Thomas")) +
+  theme_minimal() +
+  labs(title = "Word Sentiment Frequency in School Lunch Publications 10/2021 - 4/2022",
+       x = "Date",
+       y = "Frequency of Sentiment for Words Used") +
+  theme(axis.title = element_text(size = 10), 
+        plot.title = element_text(size = 10, hjust = 0.5))
+```
+
+\noindent It seems that there are just fewer sentiments and less change in frequencies from day to day in December. I think this is because, while I was looking for articles and publications about the national school lunch program and access to nutrition for kids, Lexis Nexis returned a lot of school meal menus for random districts in the United States. I think the frequency of words in general decreased in December due to school breaks for the winter holidays. The frequency of menus in my data is kind of a bummer, but it is also interesting to see that so many food words are associated with trust. I think a lot of child ed words are, as well. 
 
 \newpage

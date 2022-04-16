@@ -58,7 +58,7 @@ for (i in packages) {
 ```{r}
 #to follow along with this example, download this .docx to your working directory: 
 #https://github.com/MaRo406/EDS_231-text-sentiment/blob/main/nexis_dat/Nexis_IPCC_Results.docx
-ipcc_files <- list.files(pattern = ".docx", path = here("data"),
+ipcc_files <- list.files(pattern = ".docx", path = here("data/ipcc"),
                        full.names = TRUE, recursive = TRUE, ignore.case = TRUE)
 
 ipcc_dat <- lnt_read(ipcc_files) #Object of class 'LNT output'
@@ -70,14 +70,6 @@ ipcc_paragraphs_df <- ipcc_dat@paragraphs
 ipcc_dat2<- data_frame(element_id = seq(1:length(ipcc_meta_df$Headline)), 
                        Date = ipcc_meta_df$Date, 
                        Headline = ipcc_meta_df$Headline)
-
-#May be of use for assignment: using the full text from the articles
-ipcc_paragraphs_dat <- data_frame(element_id = ipcc_paragraphs_df$Art_ID, 
-                             Text  = ipcc_paragraphs_df$Paragraph)
-
-ipcc_dat3 <- inner_join(ipcc_dat2,
-                        ipcc_paragraphs_dat, 
-                        by = "element_id")
 ```
 
 Use the Bing sentiment analysis lexicon.
@@ -91,18 +83,19 @@ head(bing_sent, n = 5) %>%
 ```
 
 ```{r}
-ipcc_text_words <- ipcc_dat3 %>%
+ipcc_headline_words <- ipcc_dat2 %>%
   unnest_tokens(output = word, 
-                input = Text, 
+                input = Headline, 
                 token = 'words')
 
 #check
-head(ipcc_text_words) %>% 
+head(ipcc_headline_words) %>% 
   kable()
 ```
 
 ```{r}
- ipcc_sent_words <- ipcc_text_words %>% #break text into individual words
+#positive and negative words
+ ipcc_sent_words <- ipcc_headline_words %>% #break text into individual words
   anti_join(stop_words, by = 'word') %>% #returns only the rows without stop words
   inner_join(bing_sent, by = 'word') %>% 
    clean_names()
@@ -113,17 +106,37 @@ head(ipcc_sent_words, 5) %>%
 ```
 
 ```{r}
+#neutral words 
+ipcc_neutral_words <- ipcc_headline_words %>% #break text into individual words
+  anti_join(stop_words, by = 'word') %>% #returns only the rows without stop words
+  anti_join(bing_sent, by = 'word') %>% #returns the words that are neither negative not positive - ie neutral!
+  clean_names() %>% 
+  mutate(sentiment = "neutral")
+
+head(ipcc_neutral_words, 5) %>% 
+  kable()
+```
+
+```{r}
+#bring the positive and negative and neutral headline words into 1 df
+ipcc_sent_words <- rbind(ipcc_sent_words, ipcc_neutral_words)
+```
+
+
+```{r}
+#generate counts of sentiment headlines by date to plot
 ipcc_sent_plot <- ipcc_sent_words %>% 
   count(sentiment, date)
 
+#plot it UP
 ggplot(data = ipcc_sent_plot, aes(x = date, y = n)) +
          geom_line(aes(color = sentiment)) +
   theme_minimal() +
   labs(y = "Developed Media Sentiment (no. headlines)",
        x = "Date",
        title = "IPCC Publication Text Sentiment Analysis") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%m-%Y") +
-  scale_color_manual(values = c("blue", "red")) +
+  # scale_x_date(date_breaks = "1 month", date_labels = "%m-%Y") +
+  scale_color_manual(values = c("blue", "grey", "red")) +
   theme(plot.title = element_text(size = 20, hjust = 0.5),
         axis.title = element_text(size = 15),
         axis.text = element_text(size = 10))
@@ -162,6 +175,7 @@ ggplot(data = ipcc_sent_plot, aes(x = date, y = n)) +
 \noindent Now for some coding...
 
 ```{r}
+#read in my Lexis Nexis files
 lunch_files <- list.files(pattern = ".docx", 
                           path = here("data/lunch"),
                           full.names = TRUE, 
@@ -170,10 +184,12 @@ lunch_files <- list.files(pattern = ".docx",
 
 lunch_dat <- lnt_read(lunch_files) #Object of class 'LNT output'
 
+#pull the metadata, articles, and text
 lunch_meta_df <- lunch_dat@meta
 lunch_articles_df <- lunch_dat@articles
 lunch_paragraphs_df <- lunch_dat@paragraphs
 
+#make a df with headlines by date
 lunch_dat2<- data.frame(element_id = seq(1:length(lunch_meta_df$Headline)), 
                         Date = lunch_meta_df$Date, 
                         Headline = lunch_meta_df$Headline)

@@ -110,7 +110,6 @@ ggplot(data = ipcc_sent_plot, aes(x = date, y = n)) +
   scale_color_manual(values = c("blue", "red"))
 ```
 
-
 # Part 1
 
 **[Access the Nexis Uni database through the UCSB library] (https://www.library.ucsb.edu/research/db/211)**
@@ -142,16 +141,21 @@ ggplot(data = ipcc_sent_plot, aes(x = date, y = n)) +
 \noindent Now for some coding...
 
 ```{r}
-my_files <- list.files(pattern = ".docx", path = here("data"),
-                       full.names = TRUE, recursive = TRUE, ignore.case = TRUE)
+lunch_files <- list.files(pattern = ".docx", 
+                          path = here("data"),
+                          full.names = TRUE, 
+                          recursive = TRUE, 
+                          ignore.case = TRUE)
 
-dat <- lnt_read(my_files) #Object of class 'LNT output'
+lunch_dat <- lnt_read(lunch_files) #Object of class 'LNT output'
 
-meta_df <- dat@meta
-articles_df <- dat@articles
-paragraphs_df <- dat@paragraphs
+lunch_meta_df <- lunch_dat@meta
+lunch_articles_df <- lunch_dat@articles
+lunch_paragraphs_df <- lunch_dat@paragraphs
 
-dat2<- data.frame(element_id = seq(1:length(meta_df$Headline)), Date = meta_df$Date, Headline = meta_df$Headline)
+lunch_dat2<- data.frame(element_id = seq(1:length(lunch_meta_df$Headline)), 
+                        Date = lunch_meta_df$Date, 
+                        Headline = lunch_meta_df$Headline)
 ```
 
 \newpage
@@ -161,12 +165,33 @@ dat2<- data.frame(element_id = seq(1:length(meta_df$Headline)), Date = meta_df$D
 **This time use the full text of the articles for the analysis. First clean any artifacts of the data collection process (hint: this type of thing should be removed: “Apr 04, 2022( Biofuels Digest: http://www.biofuelsdigest.com/ Delivered by Newstex”)).**
 
 ```{r}
-paragraphs_dat <- data.frame(element_id = paragraphs_df$Art_ID, 
-                             Text = paragraphs_df$Paragraph)
+lunch_paragraphs_dat <- data.frame(element_id = lunch_paragraphs_df$Art_ID, 
+                             Text = lunch_paragraphs_df$Paragraph)
 
-dat3 <- inner_join(dat2,
-                   paragraphs_dat, 
-                   by = "element_id")
+lunch_dat3 <- inner_join(lunch_dat2,
+                   lunch_paragraphs_dat, 
+                   by = "element_id") %>% 
+  clean_names()
+
+#unnest to word-level tokens, remove stop words, and join sentiment words
+ lunch_text_words <- lunch_dat3  %>%
+  unnest_tokens(output = word, 
+                input = text, 
+                token = 'words')
+ 
+lunch_text_words <- lunch_text_words %>%
+  anti_join(stop_words) #removes the stop words 
+ 
+ #remove numbers 
+lunch_text_words_list <- str_remove_all(lunch_text_words$word, "[:digit:]")
+#remove website strings
+lunch_text_words_list <- str_remove_all(lunch_text_words_list, "https")
+
+#remove the empty strings
+tib <-subset(lunch_text_words_list != "")
+
+#reassign
+headlines_tokenized <- tib
 ```
 
 \newpage
@@ -182,7 +207,9 @@ dat3 <- inner_join(dat2,
 **Plot the amount of emotion words (the 8 from nrc) as a percentage of all the emotion words used each day (aggregate text from articles published on the same day). How does the distribution of emotion words change over time? Can you think of any reason this would be the case?**
 
 ```{r}
+nrc_sent <- get_sentiments('nrc')
 
+lunch_sent_counts <- 
 ```
 
 \newpage

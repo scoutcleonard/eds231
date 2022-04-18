@@ -83,59 +83,39 @@ head(bing_sent, n = 5) %>%
 ```
 
 ```{r}
-ipcc_headline_words <- ipcc_dat2 %>%
-  unnest_tokens(output = word, 
-                input = Headline, 
-                token = 'words')
+#get sentences from ipcc headlines
+ipcc_text <- get_sentences(ipcc_dat2$Headline)
 
-#check
-head(ipcc_headline_words) %>% 
+#get the sentiment of each sentence in each headline 
+ipcc_sent <- sentiment(ipcc_text)
+
+#join with sentence data
+ipcc_sent <- inner_join(ipcc_dat2, ipcc_sent, by = "element_id")
+
+# catgorize for ggplot
+ipcc_sent <- ipcc_sent %>%  
+  mutate(sent_category = case_when(
+    sentiment < 0 ~ "negative",
+    sentiment == 0 ~ "neutral",
+    sentiment > 0 ~ "positive"
+  ))
+
+head(ipcc_sent, 5) %>% 
   kable()
 ```
-
-```{r}
-#positive and negative words
- ipcc_sent_words <- ipcc_headline_words %>% #break text into individual words
-  anti_join(stop_words, by = 'word') %>% #returns only the rows without stop words
-  inner_join(bing_sent, by = 'word') %>% 
-   clean_names()
-
-#check
-head(ipcc_sent_words, 5) %>% 
-  kable()
-```
-
-```{r}
-#neutral words 
-ipcc_neutral_words <- ipcc_headline_words %>% #break text into individual words
-  anti_join(stop_words, by = 'word') %>% #returns only the rows without stop words
-  anti_join(bing_sent, by = 'word') %>% #returns the words that are neither negative not positive - ie neutral!
-  clean_names() %>% 
-  mutate(sentiment = "neutral")
-
-head(ipcc_neutral_words, 5) %>% 
-  kable()
-```
-
-```{r}
-#bring the positive and negative and neutral headline words into 1 df
-ipcc_sent_words <- rbind(ipcc_sent_words, ipcc_neutral_words)
-```
-
 
 ```{r}
 #generate counts of sentiment headlines by date to plot
-ipcc_sent_plot <- ipcc_sent_words %>% 
-  count(sentiment, date)
+ipcc_sent_plot <- ipcc_sent %>% 
+  count(sent_category, Date)
 
 #plot it UP
-ggplot(data = ipcc_sent_plot, aes(x = date, y = n)) +
-         geom_line(aes(color = sentiment)) +
+ggplot(data = ipcc_sent_plot, aes(x = Date, y = n)) +
+         geom_line(aes(color = sent_category)) +
   theme_minimal() +
   labs(y = "Developed Media Sentiment (no. headlines)",
        x = "Date",
        title = "IPCC Publication Text Sentiment Analysis") +
-  # scale_x_date(date_breaks = "1 month", date_labels = "%m-%Y") +
   scale_color_manual(values = c("blue", "grey", "red")) +
   theme(plot.title = element_text(size = 20, hjust = 0.5),
         axis.title = element_text(size = 15),
@@ -296,7 +276,8 @@ head(lunch_sentiment_freq, 5) %>%
 
 ```{r fig.width = 7, fig.height = 4}
 ggplot(data = lunch_sentiment_freq, aes(x = date, y = freq)) +
-  geom_line(aes(color = sentiment), size = 0.5) +
+  # geom_point(aes(color = sentiment)) +
+  geom_smooth(aes(color = sentiment), se = FALSE) +
   scale_x_date(date_breaks = "1 month", date_labels = "%m-%Y") +
   scale_color_manual(values = met.brewer("Thomas")) +
   theme_minimal() +

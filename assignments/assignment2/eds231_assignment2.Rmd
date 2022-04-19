@@ -126,7 +126,7 @@ ggplot(data = ipcc_sent_plot, aes(x = Date, y = n)) +
 
 # Part 1
 
-[Access the Nexis Uni database through the UCSB library] (https://www.library.ucsb.edu/research/db/211)
+[Access the Nexis Uni database through the UCSB library](https://www.library.ucsb.edu/research/db/211)
 
 \noindent Got it! 
 

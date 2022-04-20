@@ -1,0 +1,79 @@
+---
+title: "EDS 231: Assignment 3"
+author: "Scout Leonard"
+date: '`r format(Sys.time(), "%m/%d/%Y")`'
+output: pdf_document
+header-includes:
+  - \setlength{\parindent}{1em}
+  - \usepackage{float}
+---
+
+# Load Libraries
+
+```{r packages, results='hide', message=FALSE, warning=FALSE}
+packages=c("quanteda.sentiment",
+           "quanteda.textstats",
+           "tidyverse",
+           "tidytext",
+           "lubridate",
+           "here",
+           "wordcloud", #visualization of common words in the data set
+           "reshape2",
+           "quanteda") #devtools::install_github("quanteda/quanteda.sentiment") #not available currently through CRAN
+
+for (i in packages) {
+  if (require(i,character.only=TRUE)==FALSE) {
+    install.packages(i,repos='http://cran.us.r-project.org')
+  }
+  else {
+    require(i,character.only=TRUE)
+  }
+}
+```
+
+# Import Data
+
+```{r}
+raw_tweets <- read.csv("https://raw.githubusercontent.com/MaRo406/EDS_231-text-sentiment/main/dat/IPCC_tweets_April1-10_sample.csv", header=TRUE)
+
+dat<- raw_tweets[,c(5,7)] # Extract Date and Title fields
+
+tweets <- tibble(text = dat$Title,
+                  id = seq(1:length(dat$Title)),
+                 date = as.Date(dat$Date,'%m/%d/%y'))
+
+
+#head(tweets$text, n = 10)
+```
+
+\newpage
+
+You will use the tweet data from class today for each part of the following assignment.
+
+# Part 1
+
+Think about how to further clean a twitter data set. Let's assume that the mentions of twitter accounts is not useful to us. Remove them from the text field of the tweets tibble.
+
+\newpage
+
+# Part 2
+
+Compare the ten most common terms in the tweets per day.  Do you notice anything interesting?
+
+\newpage
+
+# Part 3
+
+Adjust the wordcloud in the "wordcloud" chunk by coloring the positive and negative words so they are identifiable.
+
+\newpage
+
+# Part 4
+
+Let's say we are interested in the most prominent entities in the Twitter discussion.  Which are the top 10 most tagged accounts in the data set. Hint: the "explore_hashtags" chunk is a good starting point.
+
+\newpage
+
+# Part 5
+
+The Twitter data download comes with a variable called "Sentiment" that must be calculated by Brandwatch.  Use your own method to assign each tweet a polarity score (Positive, Negative, Neutral) and compare your classification to Brandwatch's (hint: you'll need to revisit the "raw_tweets" data frame).   

@@ -54,6 +54,13 @@ You will use the tweet data from class today for each part of the following assi
 
 Think about how to further clean a twitter data set. Let's assume that the mentions of twitter accounts is not useful to us. Remove them from the text field of the tweets tibble.
 
+## Remove mentions
+
+```{r}
+
+```
+
+
 \newpage
 
 # Part 2

@@ -19,7 +19,8 @@ packages=c("quanteda.sentiment",
            "here",
            "wordcloud", #visualization of common words in the data set
            "reshape2",
-           "quanteda") #devtools::install_github("quanteda/quanteda.sentiment") #not available currently through CRAN
+           "quanteda",
+           "knitr") #devtools::install_github("quanteda/quanteda.sentiment") #not available currently through CRAN
 
 for (i in packages) {
   if (require(i,character.only=TRUE)==FALSE) {
@@ -41,9 +42,6 @@ dat<- raw_tweets[,c(5,7)] # Extract Date and Title fields
 tweets <- tibble(text = dat$Title,
                   id = seq(1:length(dat$Title)),
                  date = as.Date(dat$Date,'%m/%d/%y'))
-
-
-#head(tweets$text, n = 10)
 ```
 
 \newpage
@@ -57,15 +55,22 @@ Think about how to further clean a twitter data set. Let's assume that the menti
 ## Remove mentions
 
 ```{r}
+#remove mentions
+tweets$text <- str_remove(tweets$text, "@[a-z,A-Z]*")
 
+#remove stop words 
 ```
-
 
 \newpage
 
 # Part 2
 
 Compare the ten most common terms in the tweets per day.  Do you notice anything interesting?
+
+```{r}
+
+```
+
 
 \newpage
 

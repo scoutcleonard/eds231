@@ -35,7 +35,7 @@ for (i in packages) {
 # Import Data
 
 ```{r}
-raw_tweets <- read.csv("https://raw.githubusercontent.com/MaRo406/EDS_231-text-sentiment/main/dat/IPCC_tweets_April1-10_sample.csv", header=TRUE)
+raw_tweets <- read.csv("https://raw.githubusercontent.com/MaRo406/EDS_231-text-sentiment/main/dat/IPCC_tweets_April1-10_sample.csv", header=TRUE) %>% 
 
 dat<- raw_tweets[,c(5,7)] # Extract Date and Title fields
 
@@ -190,13 +190,10 @@ raw_tweets_trimmed <- data.frame(element_id = seq(1:length(raw_tweets$Title)),
                        Date = raw_tweets$Date, 
                        Title = raw_tweets$Title)
 
-#get sentences from tweets 
-tweet_text <- sentimentr::get_sentences(raw_tweets$Title)
-
 tweet_sent <- sentimentr::sentiment(tweet_text)
 
 #join with sentence data
-tweet_sent <- inner_join(raw_tweets, tweet_sent, by = "element_id")
+tweet_sent <- inner_join(raw_tweets_trimmed, tweet_sent, by = "element_id")
 ```
 
 Use the Bing sentiment analysis lexicon.
@@ -210,14 +207,21 @@ head(bing_sent, n = 5) %>%
 ```
 
 ```{r}
+tweet_sent <- tweet_sent %>% group_by(element_id) %>% 
+  summarise(mean_sent = mean(sentiment))
 
 # catgorize for ggplot
-tweet_sent <- tweet_sent %>%  
+tweet_cat <- tweet_sent %>%  
   mutate(sent_cat = case_when(
-    sentiment < 0 ~ "negative",
-    sentiment == 0 ~ "neutral",
-    sentiment > 0 ~ "positive"
-  ))
+    mean_sent < 0 ~ "negative",
+    mean_sent == 0 ~ "neutral",
+    mean_sent > 0 ~ "positive"
+  )) 
+
+raw_tweets <- raw_tweets %>% 
+  mutate(element_id = seq(1:length(Title)))
+
+all_sent <- full_join(tweet_cat, raw_tweets, by = "element_id")
 ```
 
 ## Brandwatch
@@ -228,6 +232,6 @@ brandwatch_sent <- data.frame(element_id = seq(1:length(raw_tweets$Title)),
                        Title = raw_tweets$Title,
                        Sentiment = raw_tweets$Sentiment)
 
-sent_comp <- left_join(brandwatch_sent, tweet_sent, by = "element_id")
+
 ```
 

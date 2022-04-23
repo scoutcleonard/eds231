@@ -72,6 +72,9 @@ clean_tokens <- str_remove_all(words$word, "[:digit:]")
 clean_tokens <- str_remove_all(clean_tokens, "@[a-z,A-Z]*")
 ##removes appostrophes
 clean_tokens <- gsub("’s", '', clean_tokens)
+## remove weird twitter and iinternet things
+clean_tokens <- str_remove_all(clean_tokens, "https")
+clean_tokens <- str_remove_all(clean_tokens, "t.co")
 
 words$clean <- clean_tokens
 
@@ -89,31 +92,51 @@ words <- tib
 Compare the ten most common terms in the tweets per day.  Do you notice anything interesting?
 
 ```{r}
-# ggplot(data = words, aes(x = clean)) + 
-#   geom_histogram(stat = "count") 
-
 words_freq <- words %>% 
   group_by(clean) %>% 
   summarise(n()) %>% 
   top_n(10) %>% 
-  rename("freq" = "n()")
+  rename("freq" = "n()") %>% 
+  select(clean)
 
-right_join(words_freq, words, by = "clean")
+top_10_words <- inner_join(words_freq, words, by = "clean") %>% 
+  group_by(date, clean) %>% 
+  summarize(n()) %>% 
+  rename("freq" = "n()")
 ```
 
 ```{r}
-ggplot(data = words_freq, aes(x = freq)) +
-  geom_histogram() +
-  stat_bin(geom = "text", aes(label = clean), vjust = -1.5) +
-  facet_wrap(facets = "date")
+ggplot(data = top_10_words, aes(x = date, y = freq)) +
+  geom_line(aes(color = clean)) +
+  theme_minimal() +
+  labs(title = "Top 10 Most Frequent Words in IPCC-related Tweets",
+       subtitle = "Tweets Leading Up to the 2022 Report",
+       x = "Date",
+       y = "Frequency",
+       color = "Word") +
+  theme(plot.title = element_text(hjust = 0.7, size = 15),
+        plot.subtitle = element_text(hjust = 0.5))
 ```
 
+I notice that there is a spike in all the top 10 words on April 4th, when the report is published. I assume this is because there is lots of coverage on this day compared to others. 
+
+"IPCC", "report", and "climate" are all the most frequent words the day the report is published and tend to stay highest for several days after, even as the frequency of all words declines. 
 
 \newpage
 
 # Part 3
 
 Adjust the wordcloud in the "wordcloud" chunk by coloring the positive and negative words so they are identifiable.
+
+```{r}
+words %>%
+inner_join(get_sentiments("bing")) %>%
+count(word, sentiment, sort = TRUE) %>%
+acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+comparison.cloud(colors = c("darkslateblue", "goldenrod"),
+                   max.words = 100)
+```
+
 
 \newpage
 

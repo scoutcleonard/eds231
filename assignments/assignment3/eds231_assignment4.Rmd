@@ -72,7 +72,7 @@ clean_tokens <- str_remove_all(words$word, "[:digit:]")
 clean_tokens <- str_remove_all(clean_tokens, "@[a-z,A-Z]*")
 ##removes appostrophes
 clean_tokens <- gsub("’s", '', clean_tokens)
-## remove weird twitter and iinternet things
+## remove weird twitter and internet things
 clean_tokens <- str_remove_all(clean_tokens, "https")
 clean_tokens <- str_remove_all(clean_tokens, "t.co")
 
@@ -128,7 +128,7 @@ I notice that there is a spike in all the top 10 words on April 4th, when the re
 
 Adjust the wordcloud in the "wordcloud" chunk by coloring the positive and negative words so they are identifiable.
 
-```{r}
+```{r fig.width= 4, fig.height=4}
 words %>%
 inner_join(get_sentiments("bing")) %>%
 count(word, sentiment, sort = TRUE) %>%
@@ -137,15 +137,97 @@ comparison.cloud(colors = c("darkslateblue", "goldenrod"),
                    max.words = 100)
 ```
 
-
 \newpage
 
 # Part 4
 
 Let's say we are interested in the most prominent entities in the Twitter discussion.  Which are the top 10 most tagged accounts in the data set. Hint: the "explore_hashtags" chunk is a good starting point.
 
+```{r}
+corpus <- corpus(dat$Title)
+
+tokens <- tokens(corpus)
+
+#clean it up
+tokens <- tokens(tokens, remove_punct = TRUE,
+                      remove_numbers = TRUE)
+
+tokens <- tokens_select(tokens, stopwords('english'),selection='remove') #stopwords lexicon built in to quanteda
+
+tokens <- tokens_wordstem(tokens) 
+
+tokens <- tokens_tolower(tokens)
+
+at_tweets <- tokens(corpus, remove_punct = TRUE) %>% 
+               tokens_keep(pattern = "@*")
+
+dfm_at<- dfm(at_tweets) #document feature matrix
+
+tstat_freq <- textstat_frequency(dfm_at, n = 100)
+head(tstat_freq, 10)
+
+#tidytext gives us tools to convert to tidy from non-tidy formats
+at_tib<- tidy(dfm_at)
+
+at_tib %>%
+   group_by(term) %>% 
+  summarise(n()) %>% 
+  top_n(10) %>% 
+  knitr::kable()
+```
+
 \newpage
 
 # Part 5
 
 The Twitter data download comes with a variable called "Sentiment" that must be calculated by Brandwatch.  Use your own method to assign each tweet a polarity score (Positive, Negative, Neutral) and compare your classification to Brandwatch's (hint: you'll need to revisit the "raw_tweets" data frame).   
+
+## My method 
+
+```{r}
+#give raw tweets element id
+raw_tweets_trimmed <- data.frame(element_id = seq(1:length(raw_tweets$Title)), 
+                       Date = raw_tweets$Date, 
+                       Title = raw_tweets$Title)
+
+#get sentences from tweets 
+tweet_text <- sentimentr::get_sentences(raw_tweets$Title)
+
+tweet_sent <- sentimentr::sentiment(tweet_text)
+
+#join with sentence data
+tweet_sent <- inner_join(raw_tweets, tweet_sent, by = "element_id")
+```
+
+Use the Bing sentiment analysis lexicon.
+
+```{r}
+bing_sent <- get_sentiments('bing') #grab the bing sentiment lexicon from tidytext
+
+#test
+head(bing_sent, n = 5) %>% 
+  kable()
+```
+
+```{r}
+
+# catgorize for ggplot
+tweet_sent <- tweet_sent %>%  
+  mutate(sent_cat = case_when(
+    sentiment < 0 ~ "negative",
+    sentiment == 0 ~ "neutral",
+    sentiment > 0 ~ "positive"
+  ))
+```
+
+## Brandwatch
+
+```{r}
+brandwatch_sent <- data.frame(element_id = seq(1:length(raw_tweets$Title)), 
+                       Date = raw_tweets$Date, 
+                       Title = raw_tweets$Title,
+                       Sentiment = raw_tweets$Sentiment)
+
+sent_comp <- left_join(brandwatch_sent, tweet_sent, by = "element_id")
+```
+

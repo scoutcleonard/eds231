@@ -10,6 +10,8 @@ header-includes:
 
 # Load Libraries
 
+The code chunk below loads libraries used in this homework's R code.
+
 ```{r packages, results='hide', message=FALSE, warning=FALSE}
 packages=c("quanteda.sentiment",
            "quanteda.textstats",
@@ -19,8 +21,13 @@ packages=c("quanteda.sentiment",
            "here",
            "wordcloud", #visualization of common words in the data set
            "reshape2",
-           "quanteda",
-           "knitr") #devtools::install_github("quanteda/quanteda.sentiment") #not available currently through CRAN
+           "knitr",
+           "reshape",
+           "patchwork",
+           "MetBrewer",
+           "dplyr",
+           "sentimentr",
+           "quanteda") 
 
 for (i in packages) {
   if (require(i,character.only=TRUE)==FALSE) {
@@ -34,10 +41,12 @@ for (i in packages) {
 
 # Import Data
 
-```{r}
-raw_tweets <- read.csv("https://raw.githubusercontent.com/MaRo406/EDS_231-text-sentiment/main/dat/IPCC_tweets_April1-10_sample.csv", header=TRUE) %>% 
+The code chunk below calls data from the GitHub of my EDS 242 instructor. The data is Twitter data that includes tweets about International Panel on Climate Change (IPCC) from select dates before and after the publication of the 2022 IPCC report. The chunk also does some cleaning for the first parts of the homework. `raw_tweets` is used throughout.
 
-dat<- raw_tweets[,c(5,7)] # Extract Date and Title fields
+```{r}
+raw_tweets <- read.csv("https://raw.githubusercontent.com/MaRo406/EDS_231-text-sentiment/main/dat/IPCC_tweets_April1-10_sample.csv", header=TRUE) 
+
+dat<- raw_tweets[,c(4,6)] # Extract Date and Title fields
 
 tweets <- tibble(text = dat$Title,
                   id = seq(1:length(dat$Title)),
@@ -46,13 +55,13 @@ tweets <- tibble(text = dat$Title,
 
 \newpage
 
-You will use the tweet data from class today for each part of the following assignment.
-
 # Part 1
 
-Think about how to further clean a twitter data set. Let's assume that the mentions of twitter accounts is not useful to us. Remove them from the text field of the tweets tibble.
+\noindent Think about how to further clean a twitter data set. Let's assume that the mentions of twitter accounts is not useful to us. Remove them from the text field of the tweets tibble.
 
-## Remove mentions
+## Remove mentions and clean
+
+\noindent The code chunk below cleans data containing tweet content by removing mentions, stop words, numbers, and meaningless URL bits so that the text analysis can focus on words meaningful to analyzing IPCC text and sentiment.
 
 ```{r}
 #remove mentions
@@ -89,21 +98,27 @@ words <- tib
 
 # Part 2
 
-Compare the ten most common terms in the tweets per day.  Do you notice anything interesting?
+\noindent Compare the ten most common terms in the tweets per day. Do you notice anything interesting?
+
+## Count word use frequency and filter data for the top 10
 
 ```{r}
+#select the top 10 used words
 words_freq <- words %>% 
   group_by(clean) %>% 
-  summarise(n()) %>% 
-  top_n(10) %>% 
-  rename("freq" = "n()") %>% 
+  summarise(freq = n()) %>% 
+   top_n(10) %>% 
   select(clean)
 
+#join with full dataset to return frquency of those words / day
 top_10_words <- inner_join(words_freq, words, by = "clean") %>% 
   group_by(date, clean) %>% 
-  summarize(n()) %>% 
-  rename("freq" = "n()")
+  summarize(freq = n()) 
 ```
+
+## Plot use of top 10 words over time
+
+\noindent The code chunk below plots a time series of how the top 10 words in IPCC tweet data changes over time - before, during, and after publication of the 2022 report.
 
 ```{r}
 ggplot(data = top_10_words, aes(x = date, y = freq)) +
@@ -115,20 +130,23 @@ ggplot(data = top_10_words, aes(x = date, y = freq)) +
        y = "Frequency",
        color = "Word") +
   theme(plot.title = element_text(hjust = 0.7, size = 15),
-        plot.subtitle = element_text(hjust = 0.5))
+        plot.subtitle = element_text(hjust = 0.5)) +
+  scale_color_manual(values = met.brewer("Nizami", n = 10))
 ```
 
-I notice that there is a spike in all the top 10 words on April 4th, when the report is published. I assume this is because there is lots of coverage on this day compared to others. 
+\noindent I notice that there is a spike in all the top 10 words on April 4th, when the report is published. I assume this is because there is lots of coverage on this day compared to others.
 
-"IPCC", "report", and "climate" are all the most frequent words the day the report is published and tend to stay highest for several days after, even as the frequency of all words declines. 
+\noindent "IPCC", "report", and "climate" are all the most frequent words the day the report is published and tend to stay highest for several days after, even as the frequency of all words declines.
 
 \newpage
 
 # Part 3
 
-Adjust the wordcloud in the "wordcloud" chunk by coloring the positive and negative words so they are identifiable.
+\noindent Adjust the wordcloud in the "wordcloud" chunk by coloring the positive and negative words so they are identifiable.
 
-```{r fig.width= 4, fig.height=4}
+## Plot wordcloud
+
+```{r fig.width= 4, fig.height=4, warning = FALSE, message = FALSE}
 words %>%
 inner_join(get_sentiments("bing")) %>%
 count(word, sentiment, sort = TRUE) %>%
@@ -141,7 +159,7 @@ comparison.cloud(colors = c("darkslateblue", "goldenrod"),
 
 # Part 4
 
-Let's say we are interested in the most prominent entities in the Twitter discussion.  Which are the top 10 most tagged accounts in the data set. Hint: the "explore_hashtags" chunk is a good starting point.
+\noindent Let's say we are interested in the most prominent entities in the Twitter discussion. Which are the top 10 most tagged accounts in the data set. Hint: the "explore_hashtags" chunk is a good starting point.
 
 ```{r}
 corpus <- corpus(dat$Title)
@@ -164,7 +182,6 @@ at_tweets <- tokens(corpus, remove_punct = TRUE) %>%
 dfm_at<- dfm(at_tweets) #document feature matrix
 
 tstat_freq <- textstat_frequency(dfm_at, n = 100)
-head(tstat_freq, 10)
 
 #tidytext gives us tools to convert to tidy from non-tidy formats
 at_tib<- tidy(dfm_at)
@@ -180,9 +197,9 @@ at_tib %>%
 
 # Part 5
 
-The Twitter data download comes with a variable called "Sentiment" that must be calculated by Brandwatch.  Use your own method to assign each tweet a polarity score (Positive, Negative, Neutral) and compare your classification to Brandwatch's (hint: you'll need to revisit the "raw_tweets" data frame).   
+The Twitter data download comes with a variable called "Sentiment" that must be calculated by Brandwatch. Use your own method to assign each tweet a polarity score (Positive, Negative, Neutral) and compare your classification to Brandwatch's (hint: you'll need to revisit the "raw_tweets" data frame).
 
-## My method 
+## Use my method to assign sentiment
 
 ```{r}
 #give raw tweets element id
@@ -190,7 +207,11 @@ raw_tweets_trimmed <- data.frame(element_id = seq(1:length(raw_tweets$Title)),
                        Date = raw_tweets$Date, 
                        Title = raw_tweets$Title)
 
-tweet_sent <- sentimentr::sentiment(tweet_text)
+tweets_text <- raw_tweets_trimmed$Title
+
+tweet_sent <- sentiment(tweets_text) %>% 
+  group_by(element_id) %>% 
+  summarise(mean_sent = mean(sentiment))
 
 #join with sentence data
 tweet_sent <- inner_join(raw_tweets_trimmed, tweet_sent, by = "element_id")
@@ -207,31 +228,44 @@ head(bing_sent, n = 5) %>%
 ```
 
 ```{r}
-tweet_sent <- tweet_sent %>% group_by(element_id) %>% 
-  summarise(mean_sent = mean(sentiment))
-
 # catgorize for ggplot
 tweet_cat <- tweet_sent %>%  
   mutate(sent_cat = case_when(
     mean_sent < 0 ~ "negative",
     mean_sent == 0 ~ "neutral",
     mean_sent > 0 ~ "positive"
-  )) 
+  ))
 
-raw_tweets <- raw_tweets %>% 
+raw_tweets <- raw_tweets %>%
   mutate(element_id = seq(1:length(Title)))
 
-all_sent <- full_join(tweet_cat, raw_tweets, by = "element_id")
+all_sent <- full_join(tweet_cat, raw_tweets, by = "element_id", copy = TRUE) %>% 
+  mutate_all(na_if, "")
 ```
 
-## Brandwatch
+## Plot both methods and compare
 
-```{r}
-brandwatch_sent <- data.frame(element_id = seq(1:length(raw_tweets$Title)), 
-                       Date = raw_tweets$Date, 
-                       Title = raw_tweets$Title,
-                       Sentiment = raw_tweets$Sentiment)
+```{r fig.width = 4, fig.height = 3}
+p1 <- ggplot(data = all_sent, aes(x = sent_cat)) +
+  geom_bar(stat = "count", 
+           aes(fill = sent_cat),
+           show.legend = FALSE) +
+  theme_classic() +
+  labs(title = "Scout's Classification of IPCC Tweet Senitment",
+       x = "Sentiment",
+       y = "Frequency of Tweet Sentiment") +
+  theme(plot.title = element_text(size = 12)) +
+  scale_fill_manual(values = met.brewer("Degas", 3))
 
+p2 <- ggplot(data = all_sent, aes(x = Sentiment)) +
+  geom_bar(stat = "count",
+           aes(fill = Sentiment),
+           show.legend = FALSE) +
+  theme_classic() +
+  theme(plot.title = element_text(size = 12)) +
+  labs(title = "Brandwatch Classification of IPCC Tweet Sentiment",
+       y = "Frequency of Tweet Sentiment") +
+  scale_fill_manual(values = met.brewer("Degas", n = 3))
 
+p1+p2
 ```
-

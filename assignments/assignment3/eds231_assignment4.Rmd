@@ -41,9 +41,9 @@ for (i in packages) {
 
 # Import Data
 
-The code chunk below calls data from the GitHub of my EDS 242 instructor. The data is Twitter data that includes tweets about International Panel on Climate Change (IPCC) from select dates before and after the publication of the 2022 IPCC report. The chunk also does some cleaning for the first parts of the homework. `raw_tweets` is used throughout.
+\noindent The code chunk below calls data from the GitHub of my EDS 242 instructor. The data is Twitter data that includes tweets about International Panel on Climate Change (IPCC) from select dates before and after the publication of the 2022 IPCC report. The chunk also does some cleaning for the first parts of the homework. `raw_tweets` is used throughout.
 
-```{r}
+```{r read in data }
 raw_tweets <- read.csv("https://raw.githubusercontent.com/MaRo406/EDS_231-text-sentiment/main/dat/IPCC_tweets_April1-10_sample.csv", header=TRUE) 
 
 dat<- raw_tweets[,c(4,6)] # Extract Date and Title fields
@@ -63,7 +63,7 @@ tweets <- tibble(text = dat$Title,
 
 \noindent The code chunk below cleans data containing tweet content by removing mentions, stop words, numbers, and meaningless URL bits so that the text analysis can focus on words meaningful to analyzing IPCC text and sentiment.
 
-```{r}
+```{r tokenize + clean words from tweets}
 #remove mentions
 tweets$text <- str_remove(tweets$text, "@[a-z,A-Z]*")
 tweets$text <- str_remove(tweets$text, "[:digit:]")
@@ -102,7 +102,7 @@ words <- tib
 
 ## Count word use frequency and filter data for the top 10
 
-```{r}
+```{r top 10 words}
 #select the top 10 used words
 words_freq <- words %>% 
   group_by(clean) %>% 
@@ -120,7 +120,7 @@ top_10_words <- inner_join(words_freq, words, by = "clean") %>%
 
 \noindent The code chunk below plots a time series of how the top 10 words in IPCC tweet data changes over time - before, during, and after publication of the 2022 report.
 
-```{r}
+```{r plot top 10 words}
 ggplot(data = top_10_words, aes(x = date, y = freq)) +
   geom_line(aes(color = clean)) +
   theme_minimal() +
@@ -146,7 +146,7 @@ ggplot(data = top_10_words, aes(x = date, y = freq)) +
 
 ## Plot wordcloud
 
-```{r fig.width= 4, fig.height=4, warning = FALSE, message = FALSE}
+```{r plot colored wordcloud, fig.width= 4, fig.height=4, warning = FALSE, message = FALSE}
 words %>%
 inner_join(get_sentiments("bing")) %>%
 count(word, sentiment, sort = TRUE) %>%
@@ -161,12 +161,15 @@ comparison.cloud(colors = c("darkslateblue", "goldenrod"),
 
 \noindent Let's say we are interested in the most prominent entities in the Twitter discussion. Which are the top 10 most tagged accounts in the data set. Hint: the "explore_hashtags" chunk is a good starting point.
 
-```{r}
+\noindent The code chunk below tokenizes words from tweets and removes puctuation except for the "@" symbol, so that I can count the most frequntly metioned Twitter accounts in the IPCC tweets. The 10 most frequent accounts are printed in the table below. 
+
+```{r top 10 accounts, message = FALSE}
 corpus <- corpus(dat$Title)
 
+#tokenize words from Tweets
 tokens <- tokens(corpus)
 
-#clean it up
+#clean up tokens
 tokens <- tokens(tokens, remove_punct = TRUE,
                       remove_numbers = TRUE)
 
@@ -186,11 +189,12 @@ tstat_freq <- textstat_frequency(dfm_at, n = 100)
 #tidytext gives us tools to convert to tidy from non-tidy formats
 at_tib<- tidy(dfm_at)
 
+#print table of 10 most mentioned accounts
 at_tib %>%
    group_by(term) %>% 
   summarise(n()) %>% 
   top_n(10) %>% 
-  knitr::kable()
+  kable()
 ```
 
 \newpage
@@ -201,14 +205,18 @@ The Twitter data download comes with a variable called "Sentiment" that must be 
 
 ## Use my method to assign sentiment
 
-```{r}
+\noindent In the code chunk below, I get the sentiment of the raw tweets and add those sentiments to the raw tweets dataframe:
+
+```{r get sentiment of raw tweets, warning = FALSE}
 #give raw tweets element id
 raw_tweets_trimmed <- data.frame(element_id = seq(1:length(raw_tweets$Title)), 
                        Date = raw_tweets$Date, 
                        Title = raw_tweets$Title)
 
+#make a character vector to get sentiments from
 tweets_text <- raw_tweets_trimmed$Title
 
+#calculate the mean sentiment based on all sentences sentences in single tweet 
 tweet_sent <- sentiment(tweets_text) %>% 
   group_by(element_id) %>% 
   summarise(mean_sent = mean(sentiment))
@@ -217,17 +225,9 @@ tweet_sent <- sentiment(tweets_text) %>%
 tweet_sent <- inner_join(raw_tweets_trimmed, tweet_sent, by = "element_id")
 ```
 
-Use the Bing sentiment analysis lexicon.
+\noindent Next, I categorize the mean sentiment value for all of the sentences in a tweet as positive, negative, or neutral. I add these categories to my original dataframe of raw tweets so that I can compare my categorization method with the Brandwatch classification results. 
 
-```{r}
-bing_sent <- get_sentiments('bing') #grab the bing sentiment lexicon from tidytext
-
-#test
-head(bing_sent, n = 5) %>% 
-  kable()
-```
-
-```{r}
+```{r categorize tweets}
 # catgorize for ggplot
 tweet_cat <- tweet_sent %>%  
   mutate(sent_cat = case_when(
@@ -245,16 +245,19 @@ all_sent <- full_join(tweet_cat, raw_tweets, by = "element_id", copy = TRUE) %>%
 
 ## Plot both methods and compare
 
-```{r fig.width = 4, fig.height = 3}
+\noindent Finally, I plot the frequency of IPCC tweets classified as positive, negative, or neutral using the two methods, mine and Brandwatch:
+
+```{r compare sentiment analyses, fig.width = 6, fig.height = 4}
 p1 <- ggplot(data = all_sent, aes(x = sent_cat)) +
   geom_bar(stat = "count", 
            aes(fill = sent_cat),
            show.legend = FALSE) +
   theme_classic() +
-  labs(title = "Scout's Classification of IPCC Tweet Senitment",
+  labs(title = "Scout's Classification of IPCC Tweet Sentiment",
        x = "Sentiment",
        y = "Frequency of Tweet Sentiment") +
-  theme(plot.title = element_text(size = 12)) +
+  theme(plot.title = element_text(size = 12),
+        axis.title.y = element_text(size = 7)) +
   scale_fill_manual(values = met.brewer("Degas", 3))
 
 p2 <- ggplot(data = all_sent, aes(x = Sentiment)) +
@@ -262,10 +265,13 @@ p2 <- ggplot(data = all_sent, aes(x = Sentiment)) +
            aes(fill = Sentiment),
            show.legend = FALSE) +
   theme_classic() +
-  theme(plot.title = element_text(size = 12)) +
+  theme(plot.title = element_text(size = 12),
+        axis.title.y = element_text(size = 7)) +
   labs(title = "Brandwatch Classification of IPCC Tweet Sentiment",
        y = "Frequency of Tweet Sentiment") +
   scale_fill_manual(values = met.brewer("Degas", n = 3))
 
-p1+p2
+p1 / p2 
 ```
+
+\noindent The resulting figure shows that the Brandwatch sentiment analysis classification of tweet sentiment assigned many more tweets as "neutral" compared to my method, which assigns  tweets as negative or positive in a less conservative way. 

@@ -8,7 +8,7 @@ header-includes:
   - \usepackage{float}
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -47,12 +47,15 @@ for (i in packages) {
 # Read in data
 
 ```{r pdf_import}
+#filepath to data
 files <- list.files(path = here("data/week5_data/"), 
                     pattern = "*pdf$", 
                     full.names = TRUE)
 
+#renders all textboxes on a text canvas and returns a character vector of equal length to the number of pages in the PDF file - a list of text from each file
 ej_reports <- lapply(files, pdf_text)
 
+#read texts and (if any) associated document-level meta-data from one or more source files - makes a df with each pdf and its text as a var
 ej_pdf <- readtext(file = here("data/week5_data/*.pdf"), 
                    docvarsfrom = "filenames",
                    docvarnames = c("type", "subj", "year"),
@@ -60,12 +63,17 @@ ej_pdf <- readtext(file = here("data/week5_data/*.pdf"),
 
 #creating an initial corpus containing our data
 epa_corp <- corpus(x = ej_pdf, text_field = "text" )
+
+#return details of the corpus
 summary(epa_corp)
 
 #I'm adding some additional, context-specific stop words to stop word lexicon
 more_stops <-c("2015","2016", "2017", "2018",
                "2019", "2020", "www.epa.gov", "https")
+
+#add the additional stopwords to the stop word lexicon
 add_stops<- tibble(word = c(stop_words$word, more_stops)) 
+
 stop_vec <- as_vector(add_stops)
 ```
 
@@ -107,10 +115,43 @@ par_words <- unnest_tokens(par_tokens,
 
 \noindent What are the most frequent trigrams in the dataset? How does this compare to the most frequent bigrams? Which n-gram seems more informative here, and why?
 
-```{r}
+```{r quanteda_init}
+tokens <- tokens(epa_corp, remove_punct = TRUE) #list of character vectors - takes each document and splits it word by word
 
+toks1<- tokens_select(tokens, min_nchar = 3)
+
+toks1 <- tokens_tolower(toks1)
+
+toks1 <- tokens_remove(toks1, pattern = (stop_vec))
+
+dfm <- dfm(toks1) #create document feature matrix - rows are number of occurances of each word within each document 
+
+#first the basic frequency stat
+tstat_freq <- textstat_frequency(dfm, n = 5, groups = year)
+
+head(tstat_freq, 10) %>% 
+  knitr::kable()
 ```
 
+
+```{r convert_dfm}
+toks2 <- tokens_ngrams(toks1, n = 3)
+
+dfm2 <- dfm(toks2)
+
+dfm2 <- dfm_remove(dfm2, pattern = c(stop_vec))
+#gives more coherent terms - power of chunking at a different token level
+
+freq_words2 <- textstat_frequency(dfm2, n = 20)
+
+freq_words2$token <- rep("trigram", 20)
+#tokens1 <- tokens_select(tokens1,pattern = stopwords("en"), selection = "remove")
+
+head(freq_words2, 5) %>% 
+  knitr::kable()
+```
+
+\noindent The most frequent trigrams in the dataset are shown in the table above, with `freq_words2$feature[1]` as the most frequently occurring trigram. 
 
 \newpage
 
@@ -118,16 +159,86 @@ par_words <- unnest_tokens(par_tokens,
 
 \noindent Choose a new focal term to replace "justice" and recreate the correlation table and network (see corr_paragraphs and corr_network chunks). Explore some of the plotting parameters in the cor_network chunk to see if you can improve the clarity or amount of information your plot conveys. Make sure to use a different color for the ties!
 
+```{r corr_paragraphs}
+#correlation between co-occuring words
+word_cors <- par_words %>% 
+  add_count(par_id) %>% 
+  filter(n >= 50) %>% 
+  select(-n) %>%
+  pairwise_cor(word, par_id, sort = TRUE)
+
+#now we can select words cooccurring with the word justice and get correlation coefficients 
+food_cors <- word_cors %>% 
+  filter(item1 == "food")
+
+  word_cors %>%
+  filter(item1 %in% c("food", "agriculture", "health", "resiliency")) %>%
+  group_by(item1) %>%
+  top_n(6) %>%
+  ungroup() %>%
+  mutate(item1 = as.factor(item1),
+  name = reorder_within(item2, correlation, item1)) %>%
+  ggplot(aes(y = name, x = correlation, fill = item1)) + 
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~item1, ncol = 2, scales = "free")+
+  scale_y_reordered() +
+  labs(y = NULL,
+         x = NULL,
+         title = "Correlations with key words",
+         subtitle = "EPA EJ Reports")
+  
+  #let's zoom in on just one of our key terms
+   food_cors <- word_cors %>% 
+  filter(item1 == "food") %>%
+   mutate(n = 1:n())
+```
+
+```{r corr_network}
+food_cors  %>%
+  filter(n <= 50) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = correlation,
+                     edge_width = correlation),
+                 edge_colour = "cornflowerblue") +
+  geom_node_point(size = 5) +
+  geom_node_text(aes(label = name),
+                 repel = TRUE, 
+                 point.padding = unit(0.2,
+                                      "lines")) +
+  theme_void()
+```
+
 \newpage
 
 # Part 3
 
 \noindent Write a function that allows you to conduct a keyness analysis to compare two individual EPA reports (hint: that means target and reference need to both be individual reports). Run the function on 3 pairs of reports, generating 3 keyness plots.
 
+```{r}
+#write function
+keyness_comparison <- function(text1, text2) {
+  
+  
+  keyness <- textstat_keyness(text1, target = text2)
+  
+  textplot_keyness(keyness)
+  
+}
+
+keyness_comparison(text1 = , text2 = dfm2(2))
+```
+
+
 \newpage
 
 # Part 4
 
-\noindent Select a word or multi-word term of interest and identify words related to it using windowing and keyness comparison. To do this you will create to objects: one containing all words occurring within a 10-word window of your term of interest, and the second object containing all other words. Then run a keyness comparison on these objects. Which one is the target, and which the reference? [Hint](https://tutorials.quanteda.io/advanced-operations/target-word-collocations/)
+\noindent Select a word or multi-word term of interest and identify words related to it using windowing and keyness comparison. To do this you will create two objects: one containing all words occurring within a 10-word window of your term of interest, and the second object containing all other words. Then run a keyness comparison on these objects. Which one is the target, and which the reference? [Hint](https://tutorials.quanteda.io/advanced-operations/target-word-collocations/)
+
+```{r}
+
+```
+
 
 \newpage

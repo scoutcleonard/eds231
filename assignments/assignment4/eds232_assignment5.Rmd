@@ -65,14 +65,15 @@ ej_pdf <- readtext(file = here("data/week5_data/*.pdf"),
 epa_corp <- corpus(x = ej_pdf, text_field = "text" )
 
 #return details of the corpus
-summary(epa_corp)
+summary(epa_corp) %>% 
+  knitr::kable()
 
 #I'm adding some additional, context-specific stop words to stop word lexicon
 more_stops <-c("2015","2016", "2017", "2018",
                "2019", "2020", "www.epa.gov", "https")
 
 #add the additional stopwords to the stop word lexicon
-add_stops<- tibble(word = c(stop_words$word, more_stops)) 
+add_stops <- tibble(word = c(stop_words$word, more_stops)) 
 
 stop_vec <- as_vector(add_stops)
 ```
@@ -151,7 +152,7 @@ head(freq_words2, 5) %>%
   knitr::kable()
 ```
 
-\noindent The most frequent trigrams in the dataset are shown in the table above, with `freq_words2$feature[1]` as the most frequently occurring trigram. 
+\noindent The most frequent trigrams in the dataset are shown in the table above, with `r freq_words2$feature[1]` as the most frequently occurring trigram. 
 
 \newpage
 
@@ -159,7 +160,7 @@ head(freq_words2, 5) %>%
 
 \noindent Choose a new focal term to replace "justice" and recreate the correlation table and network (see corr_paragraphs and corr_network chunks). Explore some of the plotting parameters in the cor_network chunk to see if you can improve the clarity or amount of information your plot conveys. Make sure to use a different color for the ties!
 
-```{r corr_paragraphs}
+```{r corr_paragraphs, warning = FALSE}
 #correlation between co-occuring words
 word_cors <- par_words %>% 
   add_count(par_id) %>% 
@@ -193,15 +194,15 @@ food_cors <- word_cors %>%
    mutate(n = 1:n())
 ```
 
-```{r corr_network}
+```{r corr_network, warning = FALSE}
 food_cors  %>%
   filter(n <= 50) %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr") +
   geom_edge_link(aes(edge_alpha = correlation,
                      edge_width = correlation),
-                 edge_colour = "cornflowerblue") +
-  geom_node_point(size = 5) +
+                 edge_colour = "darkmagenta") +
+  geom_node_point(size = 3) +
   geom_node_text(aes(label = name),
                  repel = TRUE, 
                  point.padding = unit(0.2,
@@ -216,19 +217,62 @@ food_cors  %>%
 \noindent Write a function that allows you to conduct a keyness analysis to compare two individual EPA reports (hint: that means target and reference need to both be individual reports). Run the function on 3 pairs of reports, generating 3 keyness plots.
 
 ```{r}
+#test function
+dfm_subset <- corpus_subset(epa_corp, grepl("2018|2019", docnames(epa_corp)))
+```
+
+
+```{r}
 #write function
-keyness_comparison <- function(text1, text2) {
+keyness_comparison <- function(text1_year, text2_year) {
   
+  #subset the corpus
+  corpus_subset <- corpus_subset(epa_corp, grepl(paste0(text1_year, "|", text2_year), docnames(epa_corp)))
   
-  keyness <- textstat_keyness(text1, target = text2)
+  #tokenize corpus
+  tokens <- tokens(corpus_subset, remove_punct = TRUE) #list of character vectors - takes each document and splits it word by word
+  toks<- tokens_select(tokens, min_nchar = 3)
+  toks <- tokens_tolower(toks)
+  toks <- tokens_remove(toks, pattern = (stop_vec))
+  dfm <- dfm(toks) #create document feature matrix - rows are number of occurances of each word within each document 
+  
+  keyness <- textstat_keyness(dfm, target = 2)
   
   textplot_keyness(keyness)
   
 }
 
-keyness_comparison(text1 = , text2 = dfm2(2))
 ```
 
+\newpage
+
+## Keyness plot 1
+
+Test running the function on 2015 and 2019
+
+```{r}
+keyness_comparison(text1_year = 2015, text2_year = 2019)
+```
+
+\newpage
+
+## Keyness plot 2
+
+Test running the function on 2019 and 2020
+
+```{r}
+keyness_comparison(text1_year = 2019, text2_year = 2020)
+```
+
+\newpage
+
+## Keyness plot 3
+
+Test running the function on 2016 and 2018:
+
+```{r}
+keyness_comparison(text1_year = 2016, text2_year = 2018)
+```
 
 \newpage
 
@@ -236,9 +280,41 @@ keyness_comparison(text1 = , text2 = dfm2(2))
 
 \noindent Select a word or multi-word term of interest and identify words related to it using windowing and keyness comparison. To do this you will create two objects: one containing all words occurring within a 10-word window of your term of interest, and the second object containing all other words. Then run a keyness comparison on these objects. Which one is the target, and which the reference? [Hint](https://tutorials.quanteda.io/advanced-operations/target-word-collocations/)
 
-```{r}
+**food systems**
 
+Create an object containing all words occurring within a 10 word window of **food systems**. 
+
+```{r}
+term = "food"
+
+toks_inside <- tokens_keep(toks1,
+                           pattern = term,
+                           window = 10)
+
+toks_inside <- tokens_remove(toks_inside,
+                             pattern = term)
 ```
 
+Create an object containing all other words: 
+
+```{r}
+toks_outside <- tokens_remove(toks1,
+                              pattern = term,
+                              window = 10)
+```
+
+Run a keyness comparison of the objects: 
+
+```{r}
+dfmat_inside <- dfm(toks_inside)
+dfmat_outside <- dfm(toks_outside)
+
+tstat_key_inside <- textstat_keyness(rbind(dfmat_inside, dfmat_outside), 
+                                     target = seq_len(ndoc(dfmat_inside)))
+
+textplot_keyness(tstat_key_inside)
+```
+
+`toks_inside` is the target, and `toks_outside` is the reference. 
 
 \newpage

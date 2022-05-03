@@ -14,6 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Load Libraries
 
+The code chunk below loads the packages required for this homeowrk assignment: 
+
 ```{r packages, results='hide', message=FALSE, warning=FALSE}
 packages=c("tidyr",
            "pdftools",
@@ -46,6 +48,10 @@ for (i in packages) {
 
 # Read in data
 
+## Read in files and make corpus 
+
+The code chunk below reads in the EPA report PDFs, makes a corpus of the documents, and removes stop words from the corpus. It also prints a dataframe of the corpus without stop words: 
+
 ```{r pdf_import}
 #filepath to data
 files <- list.files(path = here("data/week5_data/"), 
@@ -77,6 +83,10 @@ add_stops <- tibble(word = c(stop_words$word, more_stops))
 
 stop_vec <- as_vector(add_stops)
 ```
+
+## Count and tokenize words
+
+The code chunk below converts the EPA report corpus data to tidy format: 
 
 ```{r tidy}
 #convert to tidy format and apply my stop words
@@ -152,7 +162,7 @@ head(freq_words2, 5) %>%
   knitr::kable()
 ```
 
-\noindent The most frequent trigrams in the dataset are shown in the table above, with `r freq_words2$feature[1]` as the most frequently occurring trigram. 
+\noindent The most frequent trigrams in the dataset are shown in the table above, with `r freq_words2$feature[1]` as the most frequently occurring trigram. This is less informative than the bigram frequency because the word groupings are slightly more nonsensical, probably because linguistically bigrams are more common and trigrams. 
 
 \newpage
 

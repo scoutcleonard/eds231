@@ -83,31 +83,167 @@ dfm <- dfm[sel_idx, ]
 
 ## LDA Modelling: 
 
-```{r LDS_modelling}
-k <- 9 
+### Write the model: 
 
-#nTerms(dfm_comm) 
+```{r LDS_modelling}
 topicModel_k9 <- LDA(dfm,
-                     k,
+                     k = 9,
                      method = "Gibbs",
                      control = list(iter = 500, verbose = 25))
+```
 
+### Return results:
+
+```{r}
 tmResult <- posterior(topicModel_k9)
 
-attributes(tmResult)
-#nTerms(dfm_comm)   
-beta <- tmResult$terms   # get beta from results
-dim(beta)                # K distributions over nTerms(DTM) terms# lengthOfVocab
+beta <- tmResult$terms #get beta from results
+
 terms(topicModel_k9, 10)
 ```
 
+### Visualize results: 
+
+```{r LDAvis}
+#load libraries
+library(LDAvis)
+library("tsne")
+
+svd_tsne <- function(x) tsne(svd(x)$u)
+
+json <- createJSON(
+  phi = tmResult$terms,
+  theta = tmResult$topics,
+  doc.length = rowSums(dfm),
+  vocab = colnames(dfm),
+  term.frequency = colSums(dfm),
+  mds.method = svd_tsne,
+  plot.opts = list(xlab="",
+                   ylab="")
+)
+
+serVis(json)
+```
 
 # Assignment
 
-Run three more models and select the overall best value for k (the number of topics) - include some justification for your selection: theory, FindTopicsNumber() optimization metrics, interpretability, LDAvis
+Run three more models and select the overall best value for k (the number of topics) - include some justification for your selection: theory, FindTopicsNumber() optimization metrics, interpretability, LDAvis. 
 
-## Model 1
+## Model 1: `k = 5`
 
-## Model 2
+### Write model:
 
-## Model 3
+```{r}
+topicModel_k5 <- LDA(dfm,
+                     k = 5,
+                     method = "Gibbs",
+                     control = list(iter = 500, verbose = 25))
+```
+
+### Return results:
+
+```{r}
+tmResult_k5 <- posterior(topicModel_k5)
+
+beta <- tmResult_k5$terms #get beta from results
+
+terms(topicModel_k5, 10)
+```
+
+### Visualize Results:
+
+```{r LDAvis5}
+json_k5 <- createJSON(
+  phi = tmResult_k5$terms,
+  theta = tmResult_k5$topics,
+  doc.length = rowSums(dfm),
+  vocab = colnames(dfm),
+  term.frequency = colSums(dfm),
+  mds.method = svd_tsne,
+  plot.opts = list(xlab="",
+                   ylab="")
+)
+
+serVis(json_k5)
+```
+
+## Model 2: `k = 20`
+
+### Write model:
+
+```{r}
+topicModel_k20 <- LDA(dfm,
+                     k = 20,
+                     method = "Gibbs",
+                     control = list(iter = 500, verbose = 25))
+```
+
+
+### Return results:
+
+```{r}
+tmResult_k20 <- posterior(topicModel_k20)
+
+beta <- tmResult_k20$terms #get beta from results
+
+terms(topicModel_k20, 10)
+```
+
+### Visualize results:
+
+```{r LDAvis20}
+json_k20 <- createJSON(
+  phi = tmResult_k20$terms,
+  theta = tmResult_k20$topics,
+  doc.length = rowSums(dfm),
+  vocab = colnames(dfm),
+  term.frequency = colSums(dfm),
+  mds.method = svd_tsne,
+  plot.opts = list(xlab="",
+                   ylab="")
+)
+
+serVis(json_k20)
+```
+
+## Model 3: `k = 3`
+
+### Write model:
+
+```{r}
+topicModel_k3 <- LDA(dfm,
+                     k = 3,
+                     method = "Gibbs",
+                     control = list(iter = 500, verbose = 25))
+```
+
+### Return results:
+
+```{r}
+tmResult_k3 <- posterior(topicModel_k3)
+
+beta <- tmResult_k3$terms #get beta from results
+
+terms(topicModel_k3, 3)
+```
+
+### Visualize results:
+
+```{r LDAvis3}
+json_k3 <- createJSON(
+  phi = tmResult_k3$terms,
+  theta = tmResult_k3$topics,
+  doc.length = rowSums(dfm),
+  vocab = colnames(dfm),
+  term.frequency = colSums(dfm),
+  mds.method = svd_tsne,
+  plot.opts = list(xlab="",
+                   ylab="")
+)
+
+serVis(json_k3)
+```
+
+I think that overall, my model with k = 3 was the best number of topics for any of the models I tried. I think this based on the ratio of overall term freqnecy to estimated term frequency with the selected topic from the model, as output by the `serVis()` function. For the model with `k = 3`,  these seemed to be the closest compared to the models with `k = 5` and `k = 20`. 
+
+Also, there are fewer topics with overlapping dimensions according to the intertopic distance map for the `k = 3` model compared to the other two models. `k = 5` similarly had more intertopic distance, but the term salience was not as strong as described in the previous paragraph. 

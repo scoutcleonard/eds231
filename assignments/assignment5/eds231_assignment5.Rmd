@@ -1,5 +1,5 @@
 ---
-title: "EDS 231: Assignment 1"
+title: "EDS 231: Assignment 5: Topic Analysis"
 author: "Scout Leonard"
 date: '`r format(Sys.time(), "%m/%d/%Y")`'
 output: pdf_document
@@ -47,32 +47,44 @@ epa_corp <- corpus(x = comments_df, text_field = "text")
 
 epa_corp.stats <- summary(epa_corp)
 
-head(epa_corp.stats, n = 10) %>% 
+head(epa_corp.stats, n = 5) %>% 
   kable()
 ```
 
 ## Tokenize Corpus: 
 
 ```{r tokens}
-toks <- tokens(epa_corp, remove_punct = TRUE, remove_numbers = TRUE)
+toks <- tokens(epa_corp, 
+               remove_punct = TRUE, 
+               remove_numbers = TRUE)
 
 #I added some project-specific stop words here
-add_stops <- c(stopwords("en"),"environmental", "justice", "ej", "epa", "public", "comment")
+add_stops <- c(stopwords("en"),
+               "environmental",
+               "justice", 
+               "ej", 
+               "epa", 
+               "public", 
+               "comment")
 
-toks1 <- tokens_select(toks, pattern = add_stops, selection = "remove")
+toks1 <- tokens_select(toks,
+                       pattern = add_stops,
+                       selection = "remove")
 ```
 
 ## Convert tokens to a document frame matrix:
 
 ```{r dfm}
 #construct dfm from tokens
-dfm_comm <- dfm(toks1, tolower = TRUE)
+dfm_comm <- dfm(toks1, 
+                tolower = TRUE)
 
 #apply a stemmer to words in dfm
 dfm <- dfm_wordstem(dfm_comm)
 
 #remove terms only appearing in one doc (min_termfreq = 10)
-dfm <- dfm_trim(dfm, min_docfreq = 2) 
+dfm <- dfm_trim(dfm, 
+                min_docfreq = 2) 
 
 #remove rows (docs) with all zeros
 sel_idx <- slam::row_sums(dfm) > 0 
@@ -224,7 +236,7 @@ tmResult_k3 <- posterior(topicModel_k3)
 
 beta <- tmResult_k3$terms #get beta from results
 
-terms(topicModel_k3, 3)
+terms(topicModel_k3, 10)
 ```
 
 ### Visualize results:
@@ -247,3 +259,5 @@ serVis(json_k3)
 I think that overall, my model with k = 3 was the best number of topics for any of the models I tried. I think this based on the ratio of overall term freqnecy to estimated term frequency with the selected topic from the model, as output by the `serVis()` function. For the model with `k = 3`,  these seemed to be the closest compared to the models with `k = 5` and `k = 20`. 
 
 Also, there are fewer topics with overlapping dimensions according to the intertopic distance map for the `k = 3` model compared to the other two models. `k = 5` similarly had more intertopic distance, but the term salience was not as strong as described in the previous paragraph. 
+
+Finally, the predicted topics terms outputs make the most sense to me for `k = 3`. I can see that the topics have some sort of meaning - one for administrative topics like different levels of agencies and kinds of policies and procedures they make, one for public health and the environment terms, and one for civil rights and the environment terms. 

@@ -1,0 +1,36 @@
+---
+title: "EDS 231: Assignment 6: Word Embeddings"
+author: "Scout Leonard"
+date: '`r format(Sys.time(), "%m/%d/%Y")`'
+output: pdf_document
+header-includes:
+  - \setlength{\parindent}{1em}
+  - \usepackage{float}
+---
+
+Download a set of pretrained vectors, GloVe, and explore them.
+
+Grab data here: <!-- download.file('<https://nlp.stanford.edu/data/glove.6B.zip>',destfile = 'glove.6B.zip')  --> <!-- unzip('glove.6B.zip')  --> <!-- Use this file: 'glove.6B.300d.txt' -->
+
+# Load Libraries
+
+```{r}
+
+```
+
+
+# Download Data 
+
+```{r}
+
+```
+
+# Assignment
+
+_Download a set of pretrained vectors, GloVe, and explore them._ 
+
+1. Recreate the analyses in the last three chunks (find-synonyms, plot-synonyms, word-math) with the GloVe embeddings. How are they different from the embeddings created from the climbing accident data? Why do you think they are different?
+
+2. Run the classic word math equation, "king" - "man" = ?
+
+3. Think of three new word math equations. They can involve any words you'd like, whatever catches your interest.
